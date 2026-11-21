@@ -10,7 +10,9 @@ The current workspace is based on the standalone Polkadot SDK Solochain Template
 
 The project is being built incrementally: base node and GRANDPA finality first, then an isolated PoW authoring contour, rewards, Freeland records and public testnet. AuxPoW, EVM and ZK features are intentionally deferred until the base network is proven.
 
-Verified: the release build completed on Rust `1.88.0`, and the PoW devnet advanced best block `0x11 -> 0x14` with finalized block `0x11`. Block digests contain a `pow_` seal. Unit tests in `node/src/pow.rs` pass.
+Verified: the release build completed on Rust `1.88.0`, and the PoW devnet advanced best block `0xc -> 0xe` with finalized block `0xc`. Block `0x15` contained a `pow_` seal. All 10 workspace tests pass, including SHA-256 seal verification and timestamp-based retarget tests.
+
+The development contour now uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration.
 
 ## Isolation
 

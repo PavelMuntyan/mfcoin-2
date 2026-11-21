@@ -27,6 +27,7 @@
 use alloc::vec::Vec;
 use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
+	traits::UnixTime,
 	weights::Weight,
 };
 use pallet_grandpa::AuthorityId as GrandpaId;
@@ -285,6 +286,12 @@ impl_runtime_apis! {
 			// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
 			// have a backtrace here.
 			Executive::try_execute_block(block, state_root_check, signature_check, select).expect("execute-block failed")
+		}
+	}
+
+	impl sp_consensus_pow::TimestampApi<Block, u64> for Runtime {
+		fn timestamp() -> u64 {
+			u64::try_from(pallet_timestamp::Pallet::<Runtime>::now().as_millis()).unwrap_or(u64::MAX)
 		}
 	}
 

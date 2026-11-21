@@ -8,7 +8,10 @@ use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpS
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use solochain_template_runtime::{self, apis::RuntimeApi, opaque::Block};
-use std::{sync::Arc, time::Duration};
+use std::{
+	sync::{atomic::{AtomicBool, Ordering}, Arc},
+	time::Duration,
+};
 
 pub(crate) type FullClient = sc_service::TFullClient<
 	Block,
@@ -85,7 +88,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		client.clone(),
 		client.clone(),
-		Sha256Algorithm::default(),
+		Sha256Algorithm::new(client.clone()),
 		0,
 		select_chain.clone(),
 		move |_, ()| async move {
@@ -96,7 +99,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 	let import_queue = sc_consensus_pow::import_queue(
 		Box::new(pow_block_import),
 		Some(Box::new(grandpa_block_import.clone())),
-		Sha256Algorithm::default(),
+		Sha256Algorithm::new(client.clone()),
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
 	)?;
@@ -235,7 +238,7 @@ pub fn new_full<
 			Box::new(sc_consensus_pow::PowBlockImport::new(
 				client.clone(),
 				client.clone(),
-				Sha256Algorithm::default(),
+				Sha256Algorithm::new(client.clone()),
 				0,
 				select_chain.clone(),
 				move |_, ()| async move {
@@ -245,7 +248,7 @@ pub fn new_full<
 			)),
 			client.clone(),
 			select_chain,
-			Sha256Algorithm::default(),
+			Sha256Algorithm::new(client.clone()),
 			proposer_factory,
 			sync_service.clone(),
 			sync_service.clone(),
@@ -261,11 +264,26 @@ pub fn new_full<
 		task_manager
 			.spawn_essential_handle()
 			.spawn_blocking("pow-worker", Some("block-authoring"), worker_task);
-		std::thread::spawn(move || {
+		let stop = Arc::new(AtomicBool::new(false));
+		let mining_stop = stop.clone();
+		let mining_handle = std::thread::spawn(move || {
 			futures::executor::block_on(async move {
+				let mut version = worker.version();
 				loop {
+					if mining_stop.load(Ordering::Relaxed) {
+						break;
+					}
+					let current_version = worker.version();
+					if current_version != version {
+						version = current_version;
+						continue;
+					}
 					if let Some(metadata) = worker.metadata() {
 						let seal = crate::pow::find_seal(&metadata.pre_hash, metadata.difficulty);
+						if worker.version() != version {
+							version = worker.version();
+							continue;
+						}
 						worker.submit(seal).await;
 					} else {
 						futures_timer::Delay::new(Duration::from_millis(100)).await;
@@ -273,6 +291,15 @@ pub fn new_full<
 				}
 			});
 		});
+		let lifecycle = crate::pow::MiningLifecycle::new(stop, mining_handle);
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"pow-lifecycle",
+			Some("block-authoring"),
+			async move {
+				let _lifecycle = lifecycle;
+				futures::future::pending::<()>().await
+			},
+		);
 	}
 
 	if enable_grandpa {

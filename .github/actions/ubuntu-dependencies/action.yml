@@ -11,6 +11,5 @@ runs:
         sudo apt install -y \
           protobuf-compiler \
           llvm-dev libclang-dev clang
-        rustup target add wasm32-unknown-unknown
-        rustup component add rustfmt clippy rust-src
+        rustup toolchain install 1.88.0 --profile minimal --component rustfmt,clippy,rust-src --target wasm32-unknown-unknown
       shell: bash

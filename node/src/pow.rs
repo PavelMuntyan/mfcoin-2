@@ -1,27 +1,122 @@
-use sc_consensus_pow::{Error, PowAlgorithm};
+use crate::service::FullClient;
+use sc_client_api::HeaderBackend;
+use sc_consensus_pow::{Error, PowAlgorithm, PowAux};
 use solochain_template_runtime::opaque::Block;
+use sp_api::ProvideRuntimeApi;
+use sp_consensus_pow::TimestampApi;
 use sp_core::U256;
-use sp_runtime::generic::BlockId;
+use sp_runtime::{generic::BlockId, traits::Header as HeaderT};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use std::thread::JoinHandle;
 
 type BlockHash = <Block as sp_runtime::traits::Block>::Hash;
+type DifficultyReader = Arc<dyn Fn(BlockHash) -> Result<U256, Error<Block>> + Send + Sync>;
+type TimestampReader = Arc<dyn Fn(BlockHash) -> Result<u64, Error<Block>> + Send + Sync>;
+
+pub struct MiningLifecycle {
+    stop: Arc<AtomicBool>,
+    join_handle: Option<JoinHandle<()>>,
+}
+
+impl MiningLifecycle {
+    pub fn new(stop: Arc<AtomicBool>, join_handle: JoinHandle<()>) -> Self {
+        Self { stop, join_handle: Some(join_handle) }
+    }
+}
+
+impl Drop for MiningLifecycle {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        if let Some(handle) = self.join_handle.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Sha256Algorithm {
     target: U256,
+    client: Option<Arc<FullClient>>,
+    difficulty_reader: Option<DifficultyReader>,
+    timestamp_reader: Option<TimestampReader>,
+    window: u32,
 }
 
 impl Default for Sha256Algorithm {
     fn default() -> Self {
         Self {
             target: U256::MAX / 25_000,
+            client: None,
+            difficulty_reader: None,
+            timestamp_reader: None,
+            window: 60,
         }
+    }
+}
+
+impl Sha256Algorithm {
+    pub fn new(client: Arc<FullClient>) -> Self {
+        let mut algorithm = Self::default();
+        algorithm.difficulty_reader = Some(Arc::new({
+            let client = client.clone();
+            move |parent| {
+                let aux: PowAux<U256> = PowAux::read::<_, Block>(client.as_ref(), &parent)?;
+                if aux.difficulty.is_zero() {
+                    Ok(U256::MAX / 25_000)
+                } else {
+                    Ok(aux.difficulty)
+                }
+            }
+        }));
+        algorithm.timestamp_reader = Some(Arc::new({
+            let client = client.clone();
+            move |hash| {
+                client
+                    .runtime_api()
+                    .timestamp(hash)
+                    .map_err(|error| Error::Other(error.to_string()))
+            }
+        }));
+        algorithm.client = Some(client);
+        algorithm
+    }
+
+    fn timestamp(&self, hash: BlockHash) -> Result<u64, Error<Block>> {
+        let reader = self.timestamp_reader.as_ref().ok_or_else(|| {
+            Error::Other("Timestamp reader is not configured".to_string())
+        })?;
+        reader(hash)
     }
 }
 
 impl PowAlgorithm<Block> for Sha256Algorithm {
     type Difficulty = U256;
 
-    fn difficulty(&self, _parent: BlockHash) -> Result<Self::Difficulty, Error<Block>> {
-        Ok(self.target)
+    fn difficulty(&self, parent: BlockHash) -> Result<Self::Difficulty, Error<Block>> {
+        let current = match &self.difficulty_reader {
+            Some(reader) => reader(parent)?,
+            None => self.target,
+        };
+        let Some(client) = &self.client else {
+            return Ok(current);
+        };
+        let header = client
+            .header(parent)
+            .map_err(|error| Error::Other(error.to_string()))?
+            .ok_or(Error::NoBestHeader)?;
+        let number = *header.number();
+        if number < self.window || number % self.window != 0 {
+            return Ok(current);
+        }
+        let ancestor = client
+            .hash(number - self.window)
+            .map_err(|error| Error::Other(error.to_string()))?
+            .ok_or(Error::NoBestHeader)?;
+        let elapsed = self.timestamp(parent)?.saturating_sub(self.timestamp(ancestor)?);
+        Ok(retarget(current, elapsed, self.window))
     }
 
     fn verify(
@@ -37,6 +132,17 @@ impl PowAlgorithm<Block> for Sha256Algorithm {
         let hash = sp_crypto_hashing::sha2_256(&payload);
         Ok(U256::from_big_endian(&hash) <= difficulty)
     }
+}
+
+fn retarget(current: U256, elapsed: u64, window: u32) -> U256 {
+    if elapsed == 0 {
+        return current;
+    }
+    let expected = u64::from(window) * 3_000;
+    let next = current.saturating_mul(U256::from(expected)) / U256::from(elapsed);
+    let minimum = current.saturating_mul(U256::from(3)) / U256::from(4);
+    let maximum = current.saturating_mul(U256::from(5)) / U256::from(4);
+    next.max(minimum).min(maximum)
 }
 
 pub fn find_seal(pre_hash: &BlockHash, difficulty: U256) -> Vec<u8> {
@@ -59,7 +165,7 @@ mod tests {
 
     #[test]
     fn accepts_seal_when_target_is_maximum() {
-        let algorithm = Sha256Algorithm { target: U256::MAX };
+        let algorithm = Sha256Algorithm { target: U256::MAX, ..Default::default() };
         let parent = BlockId::Hash(Default::default());
         let pre_hash = Default::default();
         assert!(algorithm
@@ -87,5 +193,16 @@ mod tests {
         assert!(algorithm
             .verify(&parent, &pre_hash, None, &seal, difficulty)
             .unwrap());
+    }
+
+    #[test]
+    fn retargets_by_runtime_time() {
+        assert_eq!(retarget(U256::from(1_000), 150_000, 60), U256::from(1_200));
+        assert_eq!(retarget(U256::from(1_000), 225_000, 60), U256::from(800));
+        assert_eq!(retarget(U256::from(1_000), 90_000, 60), U256::from(1_250));
+        assert_eq!(retarget(U256::from(1_000), 360_000, 60), U256::from(750));
+        assert_eq!(retarget(U256::from(1_000), 1, 60), U256::from(1_250));
+        assert_eq!(retarget(U256::from(1_000), 10_000, 60), U256::from(1_250));
+        assert_eq!(retarget(U256::from(1_000), 0, 60), U256::from(1_000));
     }
 }
