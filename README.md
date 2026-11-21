@@ -4,15 +4,15 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 6: a 256-level sparse Merkle registry with verifiable proofs and a 33K-record synthetic test.
+Contour 7: persistent PostgreSQL indexing with reorg-aware records, proofs and finality status.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
 The project is being built incrementally: base node and GRANDPA finality first, then an isolated PoW authoring contour, Freeland records, rewards and public testnet. AuxPoW, EVM and ZK features are intentionally deferred until the base network is proven.
 
-Verified: 24 workspace tests and 17 active pallet tests with runtime benchmarks pass. A separate release test populated 33,000 passport/citizen entries and verified inclusion proofs. A signed devnet record was finalized, returned through `freeland_registryProof`, independently verified with 256 siblings and matched to the finalized `FreelandBlockInfo` root. Four-validator finality loss/recovery and fork reorganization also passed again.
+Verified: 24 workspace tests, 17 active pallet tests with runtime benchmarks and all indexer tests pass. Mock-chain verification covers included, orphaned and finalized records during reorg. A signed devnet record and its 256-sibling proof were read through the HTTP API with finalized status and matching registry roots. Restarting both the node and indexer preserved exactly one finalized record without duplicates.
 
-The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration. Runtime `spec_version` is `104`.
+The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration. Runtime `spec_version` is `105`.
 
 ## Freeland data contour
 
@@ -78,6 +78,7 @@ Validator-only nodes use `--disable-pow-mining`. Generated weights live in `pall
 - `freeland_latestBlockInfo(at?)`
 - `freeland_latestRecord(kind, subjectCommitment, at?)`
 - `freeland_registryProof(kind, subjectCommitment, at?)`
+- `freeland_blockRecords(at?)`
 
 `kind` is `passport`, `citizen`, `election`, `document` or `revocation`. The optional `at` parameter is a block hash; without it, methods query the best block. Responses contain commitments, hashes and Merkle proof data only.
 
@@ -88,6 +89,30 @@ cargo +1.88.0 run --release -p solochain-template-node --example freeland_devnet
 ```
 
 It connects only to localhost, uses the public development Alice key and contains no real personal data or production credentials.
+
+## PostgreSQL indexer
+
+The separate `indexer/` process stores block informers and Freeland record history in PostgreSQL. It marks non-canonical history `orphaned`, canonical records `included`, and GRANDPA-confirmed records `finalized`. It does not hold validator keys or personal payloads.
+
+Start the development database and API after starting the node:
+
+```sh
+cd indexer
+docker compose up -d --wait
+npm ci
+npm test
+npm start
+```
+
+The API listens on `127.0.0.1:8787` by default:
+
+- `GET /health`
+- `GET /freeland/finality`
+- `GET /freeland/block-info/:block_hash`
+- `GET /freeland/records/:subject_commitment?status=finalized`
+- `GET /freeland/proofs/:kind/:subject_commitment?at=:block_hash`
+
+`DATABASE_URL`, `CHAIN_RPC_URL`, `INDEXER_HOST`, `INDEXER_PORT` and `FINALITY_MAX_LAG` are configurable. The credentials in `compose.yml` are development-only. Stop the database with `docker compose stop` to preserve its volume for the next run.
 
 ## Upstream
 

@@ -311,6 +311,42 @@ impl_runtime_apis! {
 		fn registry_proof(kind: RecordKind, subject_commitment: sp_core::H256) -> RegistryProof {
 			pallet_freeland_records::Pallet::<Runtime>::registry_proof(kind, subject_commitment)
 		}
+
+		fn block_records() -> Vec<(u32, FreelandRecord<AccountId>)> {
+			frame_system::Pallet::<Runtime>::read_events_no_consensus()
+				.into_iter()
+				.filter_map(|record| {
+					let extrinsic_index = match record.phase {
+						frame_system::Phase::ApplyExtrinsic(index) => index,
+						_ => return None,
+					};
+					match record.event {
+						crate::RuntimeEvent::FreelandRecords(
+							pallet_freeland_records::Event::RecordSubmitted {
+								kind,
+								action,
+								subject_commitment,
+								payload_hash,
+								issuer,
+								nonce,
+								evidence_hash,
+								..
+							},
+						) => Some((extrinsic_index, FreelandRecord {
+							version: pallet_freeland_records::RECORD_VERSION,
+							kind,
+							action,
+							subject_commitment,
+							payload_hash,
+							issuer,
+							nonce,
+							evidence_hash,
+						})),
+						_ => None,
+					}
+				})
+				.collect()
+		}
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {

@@ -68,6 +68,10 @@ pub trait Freeland {
 		subject_commitment: H256,
 		at: Option<H256>,
 	) -> RpcResult<RegistryProof>;
+
+	/// Return Freeland records submitted in a block with their extrinsic indexes.
+	#[method(name = "blockRecords")]
+	fn block_records(&self, at: Option<H256>) -> RpcResult<Vec<Value>>;
 }
 
 impl<C> FreelandServer for FreelandRpc<C>
@@ -113,6 +117,23 @@ where
 			.runtime_api()
 			.registry_proof(at, kind, subject_commitment)
 			.map_err(runtime_error)
+	}
+
+	fn block_records(&self, at: Option<H256>) -> RpcResult<Vec<Value>> {
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+		let records = self
+			.client
+			.runtime_api()
+			.block_records(at)
+			.map_err(runtime_error)?;
+		Ok(records
+			.into_iter()
+			.map(|(extrinsic_index, record)| {
+				let mut value = record_json(record);
+				value["extrinsicIndex"] = extrinsic_index.into();
+				value
+			})
+			.collect())
 	}
 }
 

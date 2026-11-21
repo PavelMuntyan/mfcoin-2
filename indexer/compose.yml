@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: mfcoin-indexer-postgres
+    environment:
+      POSTGRES_DB: mfcoin_indexer_dev
+      POSTGRES_USER: mfcoin_indexer
+      POSTGRES_PASSWORD: indexer_dev_only
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - mfcoin-indexer-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mfcoin_indexer -d mfcoin_indexer_dev"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+volumes:
+  mfcoin-indexer-pgdata:

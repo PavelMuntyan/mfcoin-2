@@ -401,5 +401,6 @@ sp_api::decl_runtime_apis! {
 			subject_commitment: H256,
 		) -> Option<FreelandRecord<AccountId>>;
 		fn registry_proof(kind: RecordKind, subject_commitment: H256) -> RegistryProof;
+		fn block_records() -> Vec<(u32, FreelandRecord<AccountId>)>;
 	}
 }
