@@ -121,3 +121,6 @@ jobs:
       - name: Test indexer sync, reorg and finality
         working-directory: indexer
         run: npm test
+      - name: Test mfcx and tmfcx address codec
+        working-directory: packages/address
+        run: npm test

@@ -5608,6 +5608,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mfcoin-address"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,13 @@
+{
+  "name": "@mfcoin/address",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./address.js",
+  "scripts": {
+    "test": "node --test address.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

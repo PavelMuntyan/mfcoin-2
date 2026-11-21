@@ -1,0 +1,34 @@
+{
+  "valid": [
+    {
+      "hrp": "mfcx",
+      "publicKey": "0xde0d6f048c45de4681608e09acfe13d5b16c617d7376fa6f6d77af0d07c57a67",
+      "address": "mfcx1qr0q6mcy33zau35pvz8qnt87z02mzmrp04ehd7n0d4m67rg8c4axwm22jed"
+    },
+    {
+      "hrp": "tmfcx",
+      "publicKey": "0xde0d6f048c45de4681608e09acfe13d5b16c617d7376fa6f6d77af0d07c57a67",
+      "address": "tmfcx1qr0q6mcy33zau35pvz8qnt87z02mzmrp04ehd7n0d4m67rg8c4axwyt737x"
+    },
+    {
+      "hrp": "mfcx",
+      "publicKey": "0x6e3d5ca6605c51cfa5772bdc4992577ceb46efe848ab1cd644811f710be80856",
+      "address": "mfcx1qphr6h9xvpw9rna9wu4acjvj2a7wk3h0apy2k8xkgjq37ugtaqy9v09h0q9"
+    },
+    {
+      "hrp": "tmfcx",
+      "publicKey": "0x6e3d5ca6605c51cfa5772bdc4992577ceb46efe848ab1cd644811f710be80856",
+      "address": "tmfcx1qphr6h9xvpw9rna9wu4acjvj2a7wk3h0apy2k8xkgjq37ugtaqy9vsyrv8w"
+    },
+    {
+      "hrp": "mfcx",
+      "publicKey": "0xcec69fb421cda098ede452330f426fd0d4ea4e8d5eaa7e565143a2b29a82893c",
+      "address": "mfcx1qr8vd8a5y8x6px8du3frxr6zdlgdf6jw34025ljk29p69v56s2yncqe7d6c"
+    },
+    {
+      "hrp": "tmfcx",
+      "publicKey": "0xcec69fb421cda098ede452330f426fd0d4ea4e8d5eaa7e565143a2b29a82893c",
+      "address": "tmfcx1qr8vd8a5y8x6px8du3frxr6zdlgdf6jw34025ljk29p69v56s2ynclc2wan"
+    }
+  ]
+}

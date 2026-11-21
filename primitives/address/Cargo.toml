@@ -1,0 +1,20 @@
+[package]
+name = "mfcoin-address"
+description = "Canonical Bech32m mfcx and tmfcx AccountId32 addresses"
+version = "0.1.0"
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+serde_json = { features = ["std"], workspace = true }
+
+[features]
+default = ["std"]
+std = []

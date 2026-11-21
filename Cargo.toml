@@ -10,6 +10,7 @@ members = [
     "node",
     "pallets/freeland-records",
     "pallets/template",
+    "primitives/address",
     "runtime",
 ]
 resolver = "2"

@@ -16,6 +16,21 @@ The development contour uses a managed mining-thread lifecycle, discards stale m
 
 Verified: 27 workspace tests, 18 active pallet tests with runtime benchmarks, both clippy configurations and all 3 indexer tests pass. The isolated production-candidate example finalized block 40, executed its multisig/timelocked issuer change and finalized a synthetic passport record with a verified 256-sibling registry proof. The multi-node regression separately confirmed finality loss/recovery, canonical reorg handling and `orphaned` indexer history.
 
+## Canonical account addresses
+
+MFCoin account addresses use Bech32m with `mfcx` for mainnet and `tmfcx` for testnets. Payload version `0` contains one zero byte followed by the same 32-byte Sr25519 `AccountId` used by Substrate; private keys are unchanged. Addresses are lowercase only, use six checksum characters, and are 64 characters for `mfcx` and 65 for `tmfcx`.
+
+The dependency-free codecs live in `primitives/address` (Rust, `no_std`-compatible) and `packages/address` (JavaScript for Node.js and browsers). Both consume `packages/address/test-vectors.json` and reject bad checksums, HRP mismatches, wrong lengths, uppercase, invalid padding and unknown versions. The binary specification is in `packages/address/README.md`.
+
+Example representations of one public key:
+
+```text
+mfcx1qr0q6mcy33zau35pvz8qnt87z02mzmrp04ehd7n0d4m67rg8c4axwm22jed
+tmfcx1qr0q6mcy33zau35pvz8qnt87z02mzmrp04ehd7n0d4m67rg8c4axwyt737x
+```
+
+Run the JavaScript tests with `cd packages/address && npm test`, and the Rust tests with `cargo +1.88.0 test -p mfcoin-address`. Nodes and transaction tooling continue to accept SS58 until wallet/API integration is complete; the codecs alone do not enable `mfcx` financial transactions.
+
 ## Production-candidate configuration
 
 `--chain production` fails closed unless `MFCOIN_PRODUCTION_CONFIG` points to an explicit operator configuration. The JSON must contain:
