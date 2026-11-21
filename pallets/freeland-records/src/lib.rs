@@ -8,6 +8,8 @@ use frame_support::pallet_prelude::{RuntimeDebug, TypeInfo};
 use sp_core::H256;
 
 pub use pallet::*;
+mod registry;
+pub use registry::*;
 
 #[cfg(test)]
 mod mock;
@@ -25,12 +27,10 @@ const RECORD_ID_DOMAIN: &[u8] = b"MFC/freeland-record/v1";
 const RECORD_LEAF_DOMAIN: &[u8] = b"MFC/freeland-record-leaf/v1";
 const RECORD_NODE_DOMAIN: &[u8] = b"MFC/freeland-record-node/v1";
 const EMPTY_RECORDS_DOMAIN: &[u8] = b"MFC/freeland-empty-records/v1";
-const REGISTRY_LEAF_DOMAIN: &[u8] = b"MFC/freeland-registry-leaf/v1";
-const REGISTRY_NODE_DOMAIN: &[u8] = b"MFC/freeland-registry-node/v1";
-const EMPTY_REGISTRY_DOMAIN: &[u8] = b"MFC/freeland-empty-registry/v1";
 const BLOCK_INFO_DOMAIN: &[u8] = b"MFC/freeland-block-info/v1";
 
 #[derive(Clone, Copy, Decode, codec::DecodeWithMemTracking, Encode, Eq, MaxEncodedLen, Ord, PartialEq, PartialOrd, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize), serde(rename_all = "lowercase"))]
 pub enum RecordKind {
 	#[codec(index = 0)]
 	Passport,
@@ -105,13 +105,6 @@ impl<AccountId: Encode> FreelandRecord<AccountId> {
 	}
 }
 
-#[derive(Clone, Copy, Decode, Encode, Eq, MaxEncodedLen, Ord, PartialEq, PartialOrd, RuntimeDebug, TypeInfo)]
-pub struct RegistryEntry {
-	pub kind: RecordKind,
-	pub subject_commitment: H256,
-	pub record_id: H256,
-}
-
 #[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct FreelandBlockInfo {
 	pub version: u16,
@@ -163,14 +156,6 @@ pub fn records_root(record_ids: &[H256]) -> H256 {
 	merkle_root(leaves, EMPTY_RECORDS_DOMAIN, RECORD_NODE_DOMAIN)
 }
 
-pub fn registry_root(entries: &[RegistryEntry]) -> H256 {
-	let leaves = entries
-		.iter()
-		.map(|entry| hash_with_domain(REGISTRY_LEAF_DOMAIN, &entry.encode()))
-		.collect();
-	merkle_root(leaves, EMPTY_REGISTRY_DOMAIN, REGISTRY_NODE_DOMAIN)
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -186,7 +171,6 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type MaxRecordsPerBlock: Get<u32>;
-		type MaxRegistryEntries: Get<u32>;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -216,8 +200,27 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	pub type RegistryEntries<T: Config> =
-		StorageValue<_, BoundedVec<RegistryEntry, T::MaxRegistryEntries>, ValueQuery>;
+	pub type RegistryLeaves<T: Config> =
+		StorageMap<_, Blake2_128Concat, H256, RegistryEntry, OptionQuery>;
+
+	#[pallet::storage]
+	pub type RegistryNodes<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		u16,
+		Blake2_128Concat,
+		H256,
+		H256,
+		OptionQuery,
+	>;
+
+	#[pallet::type_value]
+	pub fn DefaultRegistryRoot() -> H256 {
+		empty_registry_root()
+	}
+
+	#[pallet::storage]
+	pub type RegistryRoot<T: Config> = StorageValue<_, H256, ValueQuery, DefaultRegistryRoot>;
 
 	#[pallet::storage]
 	pub type TotalRecords<T: Config> = StorageValue<_, u64, ValueQuery>;
@@ -253,7 +256,7 @@ pub mod pallet {
 		NonceOverflow,
 		RecordCountOverflow,
 		TooManyRecords,
-		RegistryFull,
+		RegistryIndexCollision,
 	}
 
 	#[pallet::hooks]
@@ -270,7 +273,7 @@ pub mod pallet {
 				version: RECORD_VERSION,
 				previous_info_root,
 				records_root: records_root(&record_ids),
-				registry_root: registry_root(&RegistryEntries::<T>::get()),
+				registry_root: RegistryRoot::<T>::get(),
 				governance_root: H256::zero(),
 				records_count: u32::try_from(record_ids.len()).unwrap_or(u32::MAX),
 				epoch: 0,
@@ -281,6 +284,35 @@ pub mod pallet {
 			frame_system::Pallet::<T>::deposit_log(DigestItem::Other(
 				(FREELAND_INFO_ENGINE_ID, root).encode(),
 			));
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub fn update_registry(entry: RegistryEntry) -> Result<(), Error<T>> {
+			let index = registry_index(entry.kind, entry.subject_commitment);
+			if let Some(existing) = RegistryLeaves::<T>::get(index) {
+				ensure!(
+					existing.kind == entry.kind &&
+						existing.subject_commitment == entry.subject_commitment,
+					Error::<T>::RegistryIndexCollision
+				);
+			}
+			let root = update_registry_path(
+				&entry,
+				|level, path| RegistryNodes::<T>::get(level, path),
+				|level, path, hash| RegistryNodes::<T>::set(level, path, Some(hash)),
+			);
+			RegistryLeaves::<T>::set(index, Some(entry));
+			RegistryRoot::<T>::set(root);
+			Ok(())
+		}
+
+		pub fn registry_proof(kind: RecordKind, subject_commitment: H256) -> RegistryProof {
+			let index = registry_index(kind, subject_commitment);
+			let entry = RegistryLeaves::<T>::get(index);
+			build_registry_proof(kind, subject_commitment, entry, RegistryRoot::<T>::get(), |level, path| {
+				RegistryNodes::<T>::get(level, path)
+			})
 		}
 	}
 
@@ -301,7 +333,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::submit_record(RegistryEntries::<T>::get().len() as u32))]
+		#[pallet::weight(T::WeightInfo::submit_record())]
 		pub fn submit_record(
 			origin: OriginFor<T>,
 			kind: RecordKind,
@@ -335,32 +367,11 @@ pub mod pallet {
 				evidence_hash,
 			};
 			let record_id = record.id();
-			let registry_update = if kind.is_registry() {
-				let mut entries = RegistryEntries::<T>::get();
-				let position = entries.binary_search_by(|entry| {
-					(entry.kind, entry.subject_commitment).cmp(&(kind, subject_commitment))
-				});
-				let entry = RegistryEntry { kind, subject_commitment, record_id };
-				match position {
-					Ok(index) => entries[index] = entry,
-					Err(index) => {
-						ensure!(
-							entries.len() < T::MaxRegistryEntries::get() as usize,
-							Error::<T>::RegistryFull
-						);
-						entries.try_insert(index, entry).map_err(|_| Error::<T>::RegistryFull)?;
-					},
-				}
-				Some(entries)
-			} else {
-				None
-			};
-
+			if kind.is_registry() {
+				Self::update_registry(RegistryEntry { kind, subject_commitment, record_id })?;
+			}
 			BlockRecordIds::<T>::try_mutate(|ids| ids.try_push(record_id))
 				.map_err(|_| Error::<T>::TooManyRecords)?;
-			if let Some(entries) = registry_update {
-				RegistryEntries::<T>::put(entries);
-			}
 			LatestRecords::<T>::set(kind, subject_commitment, Some(record));
 			NextNonce::<T>::set(&issuer, next_nonce);
 			TotalRecords::<T>::set(next_total);
@@ -379,7 +390,6 @@ pub mod pallet {
 	}
 }
 
-
 sp_api::decl_runtime_apis! {
 	pub trait FreelandApi<AccountId>
 	where
@@ -390,6 +400,6 @@ sp_api::decl_runtime_apis! {
 			kind: RecordKind,
 			subject_commitment: H256,
 		) -> Option<FreelandRecord<AccountId>>;
-		fn registry_entries() -> Vec<RegistryEntry>;
+		fn registry_proof(kind: RecordKind, subject_commitment: H256) -> RegistryProof;
 	}
 }

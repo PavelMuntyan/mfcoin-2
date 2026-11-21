@@ -11,18 +11,6 @@ fn benchmark_hash(value: u64) -> H256 {
 	H256::from_slice(&bytes)
 }
 
-fn registry_entries<T: Config>(count: u32) -> BoundedVec<RegistryEntry, T::MaxRegistryEntries> {
-	(0..count)
-		.map(|index| RegistryEntry {
-			kind: RecordKind::Passport,
-			subject_commitment: benchmark_hash(u64::from(index) + 1),
-			record_id: benchmark_hash(u64::from(index) + 1_000),
-		})
-		.collect::<Vec<_>>()
-		.try_into()
-		.expect("benchmark registry count respects the configured bound")
-}
-
 #[benchmarks]
 mod benchmarks {
 	use super::*;
@@ -37,23 +25,28 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn submit_record(r: Linear<0, 255>) {
+	fn submit_record() {
 		let issuer: T::AccountId = whitelisted_caller();
 		IssuerPermissions::<T>::set(RecordKind::Passport, issuer.clone(), true);
-		RegistryEntries::<T>::put(registry_entries::<T>(r));
+		FreelandRecords::<T>::update_registry(RegistryEntry {
+			kind: RecordKind::Passport,
+			subject_commitment: benchmark_hash(1),
+			record_id: benchmark_hash(1_000),
+		})
+		.expect("initial registry entry is valid");
 		#[extrinsic_call]
 		submit_record(
 			RawOrigin::Signed(issuer),
 			RecordKind::Passport,
 			RecordAction::Issue,
-			H256::zero(),
+			benchmark_hash(2),
 			benchmark_hash(1),
 			0,
 			benchmark_hash(2),
 		);
 
-		assert_eq!(RegistryEntries::<T>::get().len() as u32, r + 1);
 		assert_eq!(TotalRecords::<T>::get(), 1);
+		assert!(FreelandRecords::<T>::registry_proof(RecordKind::Passport, benchmark_hash(2)).entry.is_some());
 	}
 
 	#[benchmark]
@@ -64,7 +57,7 @@ mod benchmarks {
 			.try_into()
 			.expect("benchmark record count respects the configured bound");
 		BlockRecordIds::<T>::put(record_ids);
-		RegistryEntries::<T>::put(registry_entries::<T>(256));
+		RegistryRoot::<T>::put(benchmark_hash(999));
 		#[block]
 		{
 			FreelandRecords::<T>::on_finalize(1u32.into());
@@ -72,7 +65,7 @@ mod benchmarks {
 
 		let info = LatestBlockInfo::<T>::get().expect("block info is written");
 		assert_eq!(info.records_count, 64);
-		assert_eq!(info.registry_root, registry_root(&RegistryEntries::<T>::get()));
+		assert_eq!(info.registry_root, RegistryRoot::<T>::get());
 	}
 
 	impl_benchmark_test_suite!(FreelandRecords, crate::mock::new_test_ext(), crate::mock::Test);

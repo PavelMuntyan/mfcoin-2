@@ -38,14 +38,6 @@ const blockInfo = await rpc("freeland_latestBlockInfo", [bestHash]);
 if (blockInfo?.infoRoot !== freelandInfoRoot) {
   throw new Error("Freeland RPC info root does not match the block digest");
 }
-const registryEntries = await rpc("freeland_registryEntries", [bestHash]);
-for (const entry of registryEntries) {
-  const record = await rpc("freeland_latestRecord", [entry.kind, entry.subjectCommitment, bestHash]);
-  if (!record || record.recordId !== entry.recordId) {
-    throw new Error(`Registry entry does not match its latest record: ${entry.subjectCommitment}`);
-  }
-}
-
 console.log(JSON.stringify({
   firstBest: first.number,
   currentBest: second.number,
@@ -54,6 +46,5 @@ console.log(JSON.stringify({
   advancing: true,
   powSeal: true,
   freelandInfoRoot,
-  freelandApi: true,
-  registryEntries: registryEntries.length
+  freelandApi: true
 }, null, 2));

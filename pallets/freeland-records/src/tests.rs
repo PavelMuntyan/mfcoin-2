@@ -1,7 +1,8 @@
 use crate::{
-	mock::*, records_root, registry_root, BlockRecordIds, Error, Event, FreelandBlockInfo,
-	IssuerPermissions, LatestBlockInfo, LatestRecords, NextNonce, RecordAction, RecordKind,
-	RegistryEntries, TotalRecords, FREELAND_INFO_ENGINE_ID,
+	mock::*, empty_registry_root, records_root, registry_index, verify_registry_proof, BlockRecordIds,
+	Error, Event, FreelandBlockInfo, IssuerPermissions, LatestBlockInfo, LatestRecords, NextNonce,
+	RecordAction, RecordKind, RegistryEntry, RegistryLeaves, RegistryRoot, TotalRecords,
+	FREELAND_INFO_ENGINE_ID, REGISTRY_DEPTH,
 };
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok, traits::Hooks};
@@ -58,7 +59,9 @@ fn authorized_issuer_submits_typed_record() {
 		assert_eq!(NextNonce::<Test>::get(1), 1);
 		assert_eq!(TotalRecords::<Test>::get(), 1);
 		assert_eq!(BlockRecordIds::<Test>::get().len(), 1);
-		assert_eq!(RegistryEntries::<Test>::get().len(), 1);
+		assert_eq!(RegistryLeaves::<Test>::iter().count(), 1);
+		let proof = FreelandRecords::registry_proof(RecordKind::Passport, hash(10));
+		assert!(verify_registry_proof(&proof));
 		assert!(System::events().iter().any(|event| matches!(
 			event.event,
 			RuntimeEvent::FreelandRecords(Event::RecordSubmitted { nonce: 0, .. })
@@ -92,7 +95,7 @@ fn replay_is_rejected_and_next_nonce_is_accepted() {
 		);
 		assert_ok!(submit(1, RecordKind::Document, RecordAction::Update, 1));
 		assert_eq!(TotalRecords::<Test>::get(), 2);
-		assert!(RegistryEntries::<Test>::get().is_empty());
+		assert_eq!(RegistryRoot::<Test>::get(), empty_registry_root());
 	});
 }
 
@@ -135,7 +138,7 @@ fn block_record_limit_is_enforced() {
 }
 
 #[test]
-fn registry_limit_is_enforced_without_consuming_nonce() {
+fn registry_supports_more_than_the_old_limit() {
 	new_test_ext().execute_with(|| {
 		allow(RecordKind::Passport, 1);
 		for nonce in 0..256 {
@@ -150,13 +153,11 @@ fn registry_limit_is_enforced_without_consuming_nonce() {
 				FreelandRecords::on_finalize(nonce + 1);
 			}
 		}
-		assert_noop!(
-			submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(257), 256),
-			Error::<Test>::RegistryFull
-		);
 		assert_eq!(NextNonce::<Test>::get(1), 256);
 		assert_eq!(TotalRecords::<Test>::get(), 256);
-		assert_eq!(RegistryEntries::<Test>::get().len(), 256);
+		assert_eq!(RegistryLeaves::<Test>::iter().count(), 256);
+		let proof = FreelandRecords::registry_proof(RecordKind::Passport, hash(256));
+		assert!(verify_registry_proof(&proof));
 	});
 }
 
@@ -173,7 +174,13 @@ fn registry_tracks_latest_state_and_is_order_independent() {
 				assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(1), 0));
 				assert_ok!(submit_subject(2, RecordKind::Citizen, RecordAction::Issue, hash(2), 0));
 			}
-			registry_root(&RegistryEntries::<Test>::get())
+			assert_ne!(registry_index(RecordKind::Passport, hash(1)), registry_index(RecordKind::Citizen, hash(2)));
+			assert_eq!(RegistryLeaves::<Test>::iter().count(), 2);
+			let entries = RegistryLeaves::<Test>::iter().map(|(_, entry)| entry).collect::<Vec<_>>();
+			assert_eq!(RegistryRoot::<Test>::get(), crate::registry_root_from_entries(&entries));
+			assert!(verify_registry_proof(&FreelandRecords::registry_proof(RecordKind::Passport, hash(1))));
+			assert!(verify_registry_proof(&FreelandRecords::registry_proof(RecordKind::Citizen, hash(2))));
+			RegistryRoot::<Test>::get()
 		})
 	};
 	assert_eq!(forward(false), forward(true));
@@ -181,11 +188,59 @@ fn registry_tracks_latest_state_and_is_order_independent() {
 	new_test_ext().execute_with(|| {
 		allow(RecordKind::Passport, 1);
 		assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(1), 0));
-		let issued = registry_root(&RegistryEntries::<Test>::get());
+		let issued = RegistryRoot::<Test>::get();
 		assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Revoke, hash(1), 1));
-		let revoked = registry_root(&RegistryEntries::<Test>::get());
+		let revoked = RegistryRoot::<Test>::get();
 		assert_ne!(issued, revoked);
-		assert_eq!(RegistryEntries::<Test>::get().len(), 1);
+		assert_eq!(RegistryLeaves::<Test>::iter().count(), 1);
+		let proof = FreelandRecords::registry_proof(RecordKind::Passport, hash(1));
+		assert_eq!(proof.entry.unwrap().record_id, LatestRecords::<Test>::get(RecordKind::Passport, hash(1)).unwrap().id());
+		assert!(verify_registry_proof(&proof));
+	});
+}
+
+#[test]
+fn proofs_detect_tampering_and_support_absence() {
+	new_test_ext().execute_with(|| {
+		allow(RecordKind::Passport, 1);
+		assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(1), 0));
+		let proof = FreelandRecords::registry_proof(RecordKind::Passport, hash(1));
+		assert!(verify_registry_proof(&proof));
+		assert_eq!(proof.siblings.len(), REGISTRY_DEPTH as usize);
+
+		let mut wrong_sibling = proof.clone();
+		wrong_sibling.siblings[0].0[0] ^= 1;
+		assert!(!verify_registry_proof(&wrong_sibling));
+		let mut wrong_entry = proof.clone();
+		wrong_entry.entry.as_mut().unwrap().record_id = hash(999);
+		assert!(!verify_registry_proof(&wrong_entry));
+		let mut wrong_length = proof.clone();
+		wrong_length.siblings.pop();
+		assert!(!verify_registry_proof(&wrong_length));
+
+		let absence = FreelandRecords::registry_proof(RecordKind::Passport, hash(999));
+		assert!(absence.entry.is_none());
+		assert!(verify_registry_proof(&absence));
+	});
+}
+
+#[test]
+fn registry_index_collision_is_rejected() {
+	new_test_ext().execute_with(|| {
+		let index = registry_index(RecordKind::Passport, hash(1));
+		RegistryLeaves::<Test>::set(index, Some(RegistryEntry {
+			kind: RecordKind::Citizen,
+			subject_commitment: hash(1),
+			record_id: hash(2),
+		}));
+		assert!(matches!(
+			FreelandRecords::update_registry(RegistryEntry {
+				kind: RecordKind::Passport,
+				subject_commitment: hash(1),
+				record_id: hash(3),
+			}),
+			Err(Error::<Test>::RegistryIndexCollision)
+		));
 	});
 }
 
@@ -196,7 +251,7 @@ fn block_info_links_roots_and_deposits_digest() {
 		FreelandRecords::on_finalize(1);
 		let first = LatestBlockInfo::<Test>::get().unwrap();
 		assert_eq!(first.records_root, records_root(&[]));
-		assert_eq!(first.registry_root, registry_root(&[]));
+		assert_eq!(first.registry_root, empty_registry_root());
 		assert_eq!(first.records_count, 0);
 		assert_eq!(first.previous_info_root, H256::zero());
 
@@ -208,7 +263,7 @@ fn block_info_links_roots_and_deposits_digest() {
 		let second = LatestBlockInfo::<Test>::get().unwrap();
 		assert_eq!(second.previous_info_root, first.root());
 		assert_eq!(second.records_root, records_root(&record_ids));
-		assert_eq!(second.registry_root, registry_root(&RegistryEntries::<Test>::get()));
+		assert_eq!(second.registry_root, RegistryRoot::<Test>::get());
 		assert_eq!(second.records_count, 1);
 		assert!(BlockRecordIds::<Test>::get().is_empty());
 		assert!(System::digest().logs.iter().any(|log| {
@@ -232,11 +287,36 @@ fn block_info_type_has_explicit_reserved_fields() {
 		version: 1,
 		previous_info_root: H256::zero(),
 		records_root: records_root(&[]),
-		registry_root: registry_root(&[]),
+		registry_root: empty_registry_root(),
 		governance_root: H256::zero(),
 		records_count: 0,
 		epoch: 0,
 		validator_set_hash: H256::zero(),
 	};
 	assert_eq!(info.root(), info.root());
+}
+
+#[test]
+#[ignore]
+fn synthetic_33k_registry_and_proofs() {
+	new_test_ext().execute_with(|| {
+		let started = std::time::Instant::now();
+		for value in 1..=33_000u64 {
+			let kind = if value % 2 == 0 { RecordKind::Citizen } else { RecordKind::Passport };
+			FreelandRecords::update_registry(RegistryEntry {
+				kind,
+				subject_commitment: hash(value),
+				record_id: hash(value + 100_000),
+			})
+			.unwrap();
+		}
+		assert_eq!(RegistryLeaves::<Test>::iter().count(), 33_000);
+		assert_ne!(RegistryRoot::<Test>::get(), empty_registry_root());
+		for value in [1, 16_500, 33_000] {
+			let kind = if value % 2 == 0 { RecordKind::Citizen } else { RecordKind::Passport };
+			let proof = FreelandRecords::registry_proof(kind, hash(value));
+			assert!(verify_registry_proof(&proof));
+		}
+		println!("33K registry populated and verified in {:?}", started.elapsed());
+	});
 }

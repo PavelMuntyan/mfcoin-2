@@ -30,7 +30,7 @@ use frame_support::{
 	traits::UnixTime,
 	weights::Weight,
 };
-use pallet_freeland_records::{FreelandBlockInfo, FreelandRecord, RecordKind, RegistryEntry};
+use pallet_freeland_records::{FreelandBlockInfo, FreelandRecord, RecordKind, RegistryProof};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -308,8 +308,8 @@ impl_runtime_apis! {
 			pallet_freeland_records::LatestRecords::<Runtime>::get(kind, subject_commitment)
 		}
 
-		fn registry_entries() -> Vec<RegistryEntry> {
-			pallet_freeland_records::RegistryEntries::<Runtime>::get().into_inner()
+		fn registry_proof(kind: RecordKind, subject_commitment: sp_core::H256) -> RegistryProof {
+			pallet_freeland_records::Pallet::<Runtime>::registry_proof(kind, subject_commitment)
 		}
 	}
 

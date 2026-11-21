@@ -41,7 +41,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_freeland_records`.
 pub trait WeightInfo {
 	fn set_issuer() -> Weight;
-	fn submit_record(r: u32) -> Weight;
+	fn submit_record() -> Weight;
 	fn on_finalize() -> Weight;
 }
 
@@ -67,35 +67,37 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `FreelandRecords::TotalRecords` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `FreelandRecords::BlockRecordIds` (r:1 w:1)
 	/// Proof: `FreelandRecords::BlockRecordIds` (`max_values`: Some(1), `max_size`: Some(2050), added: 2545, mode: `MaxEncodedLen`)
-	/// Storage: `FreelandRecords::RegistryEntries` (r:1 w:1)
-	/// Proof: `FreelandRecords::RegistryEntries` (`max_values`: Some(1), `max_size`: Some(16642), added: 17137, mode: `MaxEncodedLen`)
+	/// Storage: `FreelandRecords::RegistryLeaves` (r:1 w:1)
+	/// Proof: `FreelandRecords::RegistryLeaves` (`max_values`: None, `max_size`: Some(113), added: 2588, mode: `MaxEncodedLen`)
+	/// Storage: `FreelandRecords::RegistryNodes` (r:256 w:257)
+	/// Proof: `FreelandRecords::RegistryNodes` (`max_values`: None, `max_size`: Some(98), added: 2573, mode: `MaxEncodedLen`)
 	/// Storage: `FreelandRecords::LatestRecords` (r:0 w:1)
 	/// Proof: `FreelandRecords::LatestRecords` (`max_values`: None, `max_size`: Some(205), added: 2680, mode: `MaxEncodedLen`)
-	/// The range of component `r` is `[0, 255]`.
-	fn submit_record(r: u32, ) -> Weight {
+	/// Storage: `FreelandRecords::RegistryRoot` (r:0 w:1)
+	/// Proof: `FreelandRecords::RegistryRoot` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	fn submit_record() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `125 + r * (65 ±0)`
-		//  Estimated: `18127`
-		// Minimum execution time: 24_000_000 picoseconds.
-		Weight::from_parts(23_150_498, 0)
-			.saturating_add(Weight::from_parts(0, 18127))
-			// Standard Error: 3_521
-			.saturating_add(Weight::from_parts(302_468, 0).saturating_mul(r.into()))
-			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(5))
+		//  Measured:  `27102`
+		//  Estimated: `659678`
+		// Minimum execution time: 2_124_000_000 picoseconds.
+		Weight::from_parts(2_299_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 659678))
+			.saturating_add(T::DbWeight::get().reads(261))
+			.saturating_add(T::DbWeight::get().writes(263))
 	}
 	/// Storage: `FreelandRecords::BlockRecordIds` (r:1 w:1)
 	/// Proof: `FreelandRecords::BlockRecordIds` (`max_values`: Some(1), `max_size`: Some(2050), added: 2545, mode: `MaxEncodedLen`)
 	/// Storage: `FreelandRecords::LatestBlockInfo` (r:1 w:1)
 	/// Proof: `FreelandRecords::LatestBlockInfo` (`max_values`: Some(1), `max_size`: Some(174), added: 669, mode: `MaxEncodedLen`)
-	/// Storage: `FreelandRecords::RegistryEntries` (r:1 w:0)
-	/// Proof: `FreelandRecords::RegistryEntries` (`max_values`: Some(1), `max_size`: Some(16642), added: 17137, mode: `MaxEncodedLen`)
+	/// Storage: `FreelandRecords::RegistryRoot` (r:1 w:0)
+	/// Proof: `FreelandRecords::RegistryRoot` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
 	fn on_finalize() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `18749`
-		//  Estimated: `18749`
-		// Minimum execution time: 462_000_000 picoseconds.
-		Weight::from_parts(556_000_000, 18749)
+		//  Measured:  `2134`
+		//  Estimated: `3535`
+		// Minimum execution time: 69_000_000 picoseconds.
+		Weight::from_parts(74_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3535))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}

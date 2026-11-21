@@ -1,3 +1,6 @@
+use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
+use pallet_freeland_records::{verify_registry_proof, RegistryProof};
+use sp_core::H256;
 use subxt::{dynamic::Value, OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
 
@@ -30,13 +33,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.await?;
 	println!("issuer_update_finalized={:#x}", issuer_events.extrinsic_hash());
 
+	let subject = H256([0x11; 32]);
 	let record = subxt::dynamic::tx(
 		"FreelandRecords",
 		"submit_record",
 		vec![
 			Value::unnamed_variant("Passport", []),
 			Value::unnamed_variant("Issue", []),
-			Value::from_bytes([0x11; 32]),
+			Value::from_bytes(subject.0),
 			Value::from_bytes([0x22; 32]),
 			Value::u128(0),
 			Value::from_bytes([0x33; 32]),
@@ -49,11 +53,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.wait_for_finalized_success()
 		.await?;
 	println!("record_finalized={:#x}", record_events.extrinsic_hash());
-	println!("subject_commitment=0x{}", hex_string(&[0x11; 32]));
+	println!("subject_commitment={subject:#x}");
+
+	let http = HttpClientBuilder::default().build(url.replace("ws://", "http://"))?;
+	let finalized = http.request::<H256, _>("chain_getFinalizedHead", rpc_params![]).await?;
+	let proof = http
+		.request::<RegistryProof, _>(
+			"freeland_registryProof",
+			rpc_params!["passport", subject, finalized],
+		)
+		.await?;
+	if !verify_registry_proof(&proof) {
+		return Err("Registry proof verification failed".into());
+	}
+	let info = http
+		.request::<serde_json::Value, _>("freeland_latestBlockInfo", rpc_params![finalized])
+		.await?;
+	let expected_root = info["registryRoot"].as_str().ok_or("Missing registryRoot")?;
+	if format!("{:#x}", proof.root) != expected_root {
+		return Err("Proof root does not match FreelandBlockInfo".into());
+	}
+	println!("proof_verified=true siblings={} root={expected_root}", proof.siblings.len());
 
 	Ok(())
-}
-
-fn hex_string(bytes: &[u8]) -> String {
-	bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }

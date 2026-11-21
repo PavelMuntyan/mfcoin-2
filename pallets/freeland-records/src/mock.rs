@@ -36,7 +36,6 @@ impl frame_system::Config for Test {
 impl pallet_freeland_records::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxRecordsPerBlock = ConstU32<64>;
-	type MaxRegistryEntries = ConstU32<256>;
 	type WeightInfo = pallet_freeland_records::weights::SubstrateWeight<Test>;
 }
 

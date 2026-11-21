@@ -15,7 +15,7 @@ use jsonrpsee::{
 };
 use pallet_freeland_records::{
 	FreelandApi as FreelandRuntimeApi, FreelandBlockInfo, FreelandRecord, RecordAction, RecordKind,
-	RegistryEntry,
+	RegistryProof,
 };
 use sc_transaction_pool_api::TransactionPool;
 use serde_json::{json, Value};
@@ -60,9 +60,14 @@ pub trait Freeland {
 		at: Option<H256>,
 	) -> RpcResult<Option<Value>>;
 
-	/// Return sorted registry entries for constructing and verifying registry proofs.
-	#[method(name = "registryEntries")]
-	fn registry_entries(&self, at: Option<H256>) -> RpcResult<Vec<Value>>;
+	/// Return a sparse Merkle proof for a registry subject.
+	#[method(name = "registryProof")]
+	fn registry_proof(
+		&self,
+		kind: String,
+		subject_commitment: H256,
+		at: Option<H256>,
+	) -> RpcResult<RegistryProof>;
 }
 
 impl<C> FreelandServer for FreelandRpc<C>
@@ -96,14 +101,18 @@ where
 		Ok(record.map(record_json))
 	}
 
-	fn registry_entries(&self, at: Option<H256>) -> RpcResult<Vec<Value>> {
+	fn registry_proof(
+		&self,
+		kind: String,
+		subject_commitment: H256,
+		at: Option<H256>,
+	) -> RpcResult<RegistryProof> {
+		let kind = parse_record_kind(&kind)?;
 		let at = at.unwrap_or_else(|| self.client.info().best_hash);
-		let entries = self
-			.client
+		self.client
 			.runtime_api()
-			.registry_entries(at)
-			.map_err(runtime_error)?;
-		Ok(entries.into_iter().map(registry_entry_json).collect())
+			.registry_proof(at, kind, subject_commitment)
+			.map_err(runtime_error)
 	}
 }
 
@@ -174,14 +183,6 @@ fn record_json(record: FreelandRecord<AccountId>) -> Value {
 		"issuer": record.issuer,
 		"nonce": record.nonce,
 		"evidenceHash": record.evidence_hash,
-	})
-}
-
-fn registry_entry_json(entry: RegistryEntry) -> Value {
-	json!({
-		"kind": kind_name(entry.kind),
-		"subjectCommitment": entry.subject_commitment,
-		"recordId": entry.record_id,
 	})
 }
 

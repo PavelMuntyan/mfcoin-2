@@ -92,6 +92,7 @@ substrate-frame-rpc-system.default-features = true
 substrate-frame-rpc-system.workspace = true
 
 [dev-dependencies]
+jsonrpsee = { features = ["http-client"], workspace = true }
 subxt.workspace = true
 subxt-signer.workspace = true
 tokio = { features = ["macros", "rt-multi-thread"], workspace = true }
