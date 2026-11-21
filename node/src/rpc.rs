@@ -10,13 +10,17 @@ use std::sync::Arc;
 use jsonrpsee::{
 	core::RpcResult,
 	proc_macros::rpc,
-	types::{error::{INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE}, ErrorObjectOwned},
+	types::{
+		error::{INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE},
+		ErrorObjectOwned,
+	},
 	RpcModule,
 };
 use pallet_freeland_records::{
-	FreelandApi as FreelandRuntimeApi, FreelandBlockInfo, FreelandRecord, IssuerChange, RecordAction,
-	RecordKind, RegistryProof,
+	FreelandApi as FreelandRuntimeApi, FreelandBlockInfo, FreelandRecord, IssuerChange,
+	RecordAction, RecordKind, RegistryProof,
 };
+use pallet_mfc_rewards::{MfcRewardsApi as MfcRewardsRuntimeApi, RewardObligation, RewardTotals};
 use sc_transaction_pool_api::TransactionPool;
 use serde_json::{json, Value};
 use solochain_template_runtime::{opaque::Block, AccountId, Balance, Nonce};
@@ -75,7 +79,12 @@ pub trait Freeland {
 
 	/// Return a bounded page of records from a block.
 	#[method(name = "blockRecordsPage")]
-	fn block_records_page(&self, offset: u32, limit: u32, at: Option<H256>) -> RpcResult<Vec<Value>>;
+	fn block_records_page(
+		&self,
+		offset: u32,
+		limit: u32,
+		at: Option<H256>,
+	) -> RpcResult<Vec<Value>>;
 
 	/// Return the total number of Freeland records in the current state.
 	#[method(name = "totalRecords")]
@@ -148,7 +157,12 @@ where
 			.collect())
 	}
 
-	fn block_records_page(&self, offset: u32, limit: u32, at: Option<H256>) -> RpcResult<Vec<Value>> {
+	fn block_records_page(
+		&self,
+		offset: u32,
+		limit: u32,
+		at: Option<H256>,
+	) -> RpcResult<Vec<Value>> {
 		let at = at.unwrap_or_else(|| self.client.info().best_hash);
 		let records = self
 			.client
@@ -167,7 +181,10 @@ where
 
 	fn total_records(&self, at: Option<H256>) -> RpcResult<u64> {
 		let at = at.unwrap_or_else(|| self.client.info().best_hash);
-		self.client.runtime_api().total_records(at).map_err(runtime_error)
+		self.client
+			.runtime_api()
+			.total_records(at)
+			.map_err(runtime_error)
 	}
 
 	fn pending_issuer_changes(&self, at: Option<H256>) -> RpcResult<Vec<Value>> {
@@ -180,7 +197,12 @@ where
 		Ok(changes
 			.into_iter()
 			.map(|(proposal_id, change)| {
-				let IssuerChange { kind, issuer, allowed, execute_at } = change;
+				let IssuerChange {
+					kind,
+					issuer,
+					allowed,
+					execute_at,
+				} = change;
 				json!({
 					"proposalId": proposal_id,
 					"kind": kind_name(kind),
@@ -190,6 +212,73 @@ where
 				})
 			})
 			.collect())
+	}
+}
+
+/// Read-only native reward accounting.
+pub struct MfcRewardsRpc<C> {
+	client: Arc<C>,
+}
+
+impl<C> MfcRewardsRpc<C> {
+	fn new(client: Arc<C>) -> Self {
+		Self { client }
+	}
+}
+
+#[rpc(server, namespace = "mfc")]
+pub trait MfcRewards {
+	/// Return native scheduled, minted and accrued balances at an optional block hash.
+	#[method(name = "rewardTotals")]
+	fn reward_totals(&self, at: Option<H256>) -> RpcResult<Value>;
+
+	/// Return the reward obligation for a specific block height.
+	#[method(name = "rewardObligation")]
+	fn reward_obligation(&self, block: u32, at: Option<H256>) -> RpcResult<Option<Value>>;
+}
+
+impl<C> MfcRewardsServer for MfcRewardsRpc<C>
+where
+	C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
+	C::Api: MfcRewardsRuntimeApi<Block, AccountId, Balance>,
+{
+	fn reward_totals(&self, at: Option<H256>) -> RpcResult<Value> {
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+		let totals: RewardTotals<Balance> = self
+			.client
+			.runtime_api()
+			.reward_totals(at)
+			.map_err(runtime_error)?;
+		Ok(json!({
+			"scheduled": totals.scheduled.to_string(),
+			"minted": totals.minted.to_string(),
+			"validatorAccrued": totals.validator_accrued.to_string(),
+			"powPaid": totals.pow_paid.to_string(),
+			"treasuryPaid": totals.treasury_paid.to_string(),
+		}))
+	}
+
+	fn reward_obligation(&self, block: u32, at: Option<H256>) -> RpcResult<Option<Value>> {
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+		let reward = self
+			.client
+			.runtime_api()
+			.reward_obligation(at, block)
+			.map_err(runtime_error)?;
+		Ok(reward.map(|reward| {
+			let RewardObligation {
+				pow_payout,
+				pow_amount,
+				treasury_amount,
+				validator_amount,
+			} = reward;
+			json!({
+				"powPayout": pow_payout,
+				"powAmount": pow_amount.to_string(),
+				"treasuryAmount": treasury_amount.to_string(),
+				"validatorAmount": validator_amount.to_string(),
+			})
+		}))
 	}
 }
 
@@ -275,6 +364,7 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: FreelandRuntimeApi<Block, AccountId>,
+	C::Api: MfcRewardsRuntimeApi<Block, AccountId, Balance>,
 	P: TransactionPool + 'static,
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
@@ -285,7 +375,8 @@ where
 
 	module.merge(System::new(client.clone(), pool).into_rpc())?;
 	module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-	module.merge(FreelandRpc::new(client).into_rpc())?;
+	module.merge(FreelandRpc::new(client.clone()).into_rpc())?;
+	module.merge(MfcRewardsRpc::new(client).into_rpc())?;
 
 	Ok(module)
 }

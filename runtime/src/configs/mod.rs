@@ -156,6 +156,12 @@ impl pallet_freeland_records::Config for Runtime {
 	type WeightInfo = pallet_freeland_records::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_mfc_rewards::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type RewardMaturation = ConstU32<10>;
+}
+
 impl pallet_multisig::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;

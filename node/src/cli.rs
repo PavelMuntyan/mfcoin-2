@@ -1,3 +1,5 @@
+use solochain_template_runtime::AccountId;
+
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
 	#[command(subcommand)]
@@ -9,6 +11,10 @@ pub struct Cli {
 	/// Participate in GRANDPA without authoring PoW blocks.
 	#[arg(long)]
 	pub disable_pow_mining: bool,
+
+	/// Public account receiving PoW rewards. No private key is required on the node.
+	#[arg(long)]
+	pub pow_payout_account: Option<AccountId>,
 
 	/// Override the number of 64 KiB pages allocated to the runtime.
 	#[arg(long)]

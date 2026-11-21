@@ -27,6 +27,7 @@ frame-system-rpc-runtime-api.workspace = true
 frame-try-runtime = { optional = true, workspace = true }
 pallet-balances.workspace = true
 pallet-freeland-records.workspace = true
+pallet-mfc-rewards.workspace = true
 pallet-grandpa.workspace = true
 pallet-multisig.workspace = true
 pallet-timestamp.workspace = true
@@ -66,6 +67,7 @@ std = [
 	"frame-try-runtime?/std",
 	"pallet-balances/std",
 	"pallet-freeland-records/std",
+	"pallet-mfc-rewards/std",
 	"pallet-grandpa/std",
 	"pallet-multisig/std",
 	"pallet-timestamp/std",

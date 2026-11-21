@@ -31,6 +31,8 @@ sp-crypto-hashing.workspace = true
 jsonrpsee = { features = ["server"], workspace = true }
 pallet-freeland-records.default-features = true
 pallet-freeland-records.workspace = true
+pallet-mfc-rewards.default-features = true
+pallet-mfc-rewards.workspace = true
 pallet-multisig.default-features = true
 pallet-multisig.workspace = true
 pallet-transaction-payment.default-features = true

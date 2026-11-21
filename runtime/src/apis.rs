@@ -34,6 +34,7 @@ use pallet_freeland_records::{
 	FreelandBlockInfo, FreelandRecord, IssuerChange, RecordKind, RegistryProof,
 };
 use pallet_grandpa::AuthorityId as GrandpaId;
+use pallet_mfc_rewards::{RewardObligation, RewardTotals};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -359,6 +360,22 @@ impl_runtime_apis! {
 
 		fn pending_issuer_changes() -> Vec<(sp_core::H256, IssuerChange<AccountId>)> {
 			pallet_freeland_records::PendingIssuerChanges::<Runtime>::iter().collect()
+		}
+	}
+
+	impl pallet_mfc_rewards::MfcRewardsApi<Block, AccountId, Balance> for Runtime {
+		fn reward_totals() -> RewardTotals<Balance> {
+			RewardTotals {
+				scheduled: pallet_mfc_rewards::ScheduledTotal::<Runtime>::get(),
+				minted: pallet_mfc_rewards::MintedTotal::<Runtime>::get(),
+				validator_accrued: pallet_mfc_rewards::ValidatorAccrued::<Runtime>::get(),
+				pow_paid: pallet_mfc_rewards::PowPaid::<Runtime>::get(),
+				treasury_paid: pallet_mfc_rewards::TreasuryPaid::<Runtime>::get(),
+			}
+		}
+
+		fn reward_obligation(block: u32) -> Option<RewardObligation<AccountId, Balance>> {
+			pallet_mfc_rewards::Obligations::<Runtime>::get(block)
 		}
 	}
 

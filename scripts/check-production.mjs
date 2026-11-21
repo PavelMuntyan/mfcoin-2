@@ -57,6 +57,10 @@ async function startNode(name, rpcPort, p2pPort, bootnodes = []) {
   });
   if (key.status !== 0) throw new Error(`Could not generate ${name} network key: ${key.stderr}`);
 
+  const payoutAccounts = {
+    alice: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+    bob: "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+  };
   const args = [
     "--chain", "production",
     "--base-path", basePath,
@@ -64,6 +68,7 @@ async function startNode(name, rpcPort, p2pPort, bootnodes = []) {
     "--port", String(p2pPort),
     "--no-mdns",
     "--no-prometheus",
+    "--pow-payout-account", payoutAccounts[name],
     `--${name}`
   ];
   for (const bootnode of bootnodes) args.push("--bootnodes", bootnode);

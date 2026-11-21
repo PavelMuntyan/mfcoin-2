@@ -6363,6 +6363,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-mfc-rewards"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-mmr"
 version = "45.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10160,6 +10175,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "pallet-freeland-records",
+ "pallet-mfc-rewards",
  "pallet-multisig",
  "pallet-staking",
  "pallet-transaction-payment",
@@ -10215,6 +10231,7 @@ dependencies = [
  "pallet-balances",
  "pallet-freeland-records",
  "pallet-grandpa",
+ "pallet-mfc-rewards",
  "pallet-multisig",
  "pallet-timestamp",
  "pallet-transaction-payment",

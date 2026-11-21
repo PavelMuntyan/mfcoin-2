@@ -40,8 +40,9 @@ impl SubstrateCli for Cli {
 			"dev" => Box::new(chain_spec::development_chain_spec()?),
 			"production" => Box::new(chain_spec::production_chain_spec()?),
 			"" | "local" => Box::new(chain_spec::local_chain_spec()?),
-			path =>
-				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+			path => Box::new(chain_spec::ChainSpec::from_json_file(
+				std::path::PathBuf::from(path),
+			)?),
 		})
 	}
 }
@@ -56,57 +57,77 @@ pub fn run() -> sc_cli::Result<()> {
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
-		},
+		}
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, import_queue, .. } =
-					service::new_partial(&config)?;
+				let PartialComponents {
+					client,
+					task_manager,
+					import_queue,
+					..
+				} = service::new_partial(&config)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
-		},
+		}
 		Some(Subcommand::ExportChainSpec(cmd)) => {
 			let chain_spec = cli.load_spec(&cmd.chain)?;
 			cmd.run(chain_spec)
-		},
+		}
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, .. } = service::new_partial(&config)?;
+				let PartialComponents {
+					client,
+					task_manager,
+					..
+				} = service::new_partial(&config)?;
 				Ok((cmd.run(client, config.database), task_manager))
 			})
-		},
+		}
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, .. } = service::new_partial(&config)?;
+				let PartialComponents {
+					client,
+					task_manager,
+					..
+				} = service::new_partial(&config)?;
 				Ok((cmd.run(client, config.chain_spec), task_manager))
 			})
-		},
+		}
 		Some(Subcommand::ImportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, import_queue, .. } =
-					service::new_partial(&config)?;
+				let PartialComponents {
+					client,
+					task_manager,
+					import_queue,
+					..
+				} = service::new_partial(&config)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
-		},
+		}
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run(config.database))
-		},
+		}
 		Some(Subcommand::Revert(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, backend, .. } =
-					service::new_partial(&config)?;
+				let PartialComponents {
+					client,
+					task_manager,
+					backend,
+					..
+				} = service::new_partial(&config)?;
 				let aux_revert = Box::new(|client, _, blocks| {
 					sc_consensus_grandpa::revert(client, blocks)?;
 					Ok(())
 				});
 				Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))
 			})
-		},
+		}
 		Some(Subcommand::Benchmark(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 
@@ -126,11 +147,11 @@ pub fn run() -> sc_cli::Result<()> {
 						cmd.run_with_spec::<sp_runtime::traits::HashingFor<Block>, ()>(Some(
 							config.chain_spec,
 						))
-					},
+					}
 					BenchmarkCmd::Block(cmd) => {
 						let PartialComponents { client, .. } = service::new_partial(&config)?;
 						cmd.run(client)
-					},
+					}
 					#[cfg(not(feature = "runtime-benchmarks"))]
 					BenchmarkCmd::Storage(_) => Err(
 						"Storage benchmarking can be enabled with `--features runtime-benchmarks`."
@@ -138,14 +159,15 @@ pub fn run() -> sc_cli::Result<()> {
 					),
 					#[cfg(feature = "runtime-benchmarks")]
 					BenchmarkCmd::Storage(cmd) => {
-						let PartialComponents { client, backend, .. } =
-							service::new_partial(&config)?;
+						let PartialComponents {
+							client, backend, ..
+						} = service::new_partial(&config)?;
 						let db = backend.expose_db();
 						let storage = backend.expose_storage();
 						let shared_cache = backend.expose_shared_trie_cache();
 
 						cmd.run(config, client, db, storage, shared_cache)
-					},
+					}
 					BenchmarkCmd::Overhead(cmd) => {
 						let PartialComponents { client, .. } = service::new_partial(&config)?;
 						let ext_builder = RemarkBuilder::new(client.clone());
@@ -158,7 +180,7 @@ pub fn run() -> sc_cli::Result<()> {
 							&ext_builder,
 							false,
 						)
-					},
+					}
 					BenchmarkCmd::Extrinsic(cmd) => {
 						let PartialComponents { client, .. } = service::new_partial(&config)?;
 						// Register the *Remark* and *TKA* builders.
@@ -172,19 +194,21 @@ pub fn run() -> sc_cli::Result<()> {
 						]);
 
 						cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
-					},
-					BenchmarkCmd::Machine(cmd) =>
-						cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone()),
+					}
+					BenchmarkCmd::Machine(cmd) => {
+						cmd.run(&config, SUBSTRATE_REFERENCE_HARDWARE.clone())
+					}
 				}
 			})
-		},
+		}
 		Some(Subcommand::ChainInfo(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| cmd.run::<Block>(&config))
-		},
+		}
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 			let disable_pow_mining = cli.disable_pow_mining;
+			let pow_payout_account = cli.pow_payout_account.clone();
 			let runtime_heap_pages = cli.runtime_heap_pages;
 			runner.run_node_until_exit(|config| async move {
 				let mut config = config;
@@ -195,13 +219,13 @@ pub fn run() -> sc_cli::Result<()> {
 							solochain_template_runtime::opaque::Block,
 							<solochain_template_runtime::opaque::Block as sp_runtime::traits::Block>::Hash,
 						>,
-					>(config, disable_pow_mining)
+					>(config, disable_pow_mining, pow_payout_account)
 					.map_err(sc_cli::Error::Service),
 					sc_network::config::NetworkBackendType::Litep2p =>
-						service::new_full::<sc_network::Litep2pNetworkBackend>(config, disable_pow_mining)
+						service::new_full::<sc_network::Litep2pNetworkBackend>(config, disable_pow_mining, pow_payout_account)
 							.map_err(sc_cli::Error::Service),
 				}
 			})
-		},
+		}
 	}
 }

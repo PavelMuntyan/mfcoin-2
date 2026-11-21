@@ -51,6 +51,11 @@ fn testnet_genesis(initial_authorities: Vec<GrandpaId>, endowed_accounts: Vec<Ac
 			governance_account: Some(governance_account),
 			_phantom: Default::default(),
 		},
+		mfc_rewards: pallet_mfc_rewards::GenesisConfig {
+			enabled: true,
+			activation_block: 0,
+			treasury_account: Some(Sr25519Keyring::Charlie.to_account_id()),
+		},
 	})
 }
 

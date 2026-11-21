@@ -4,12 +4,18 @@ use crate::pow::Sha256Algorithm;
 use futures::FutureExt;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_grandpa::SharedVoterState;
-use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncConfig};
+use sc_service::{
+	error::Error as ServiceError, ChainType, Configuration, TaskManager, WarpSyncConfig,
+};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use solochain_template_runtime::{self, apis::RuntimeApi, opaque::Block};
+use sp_keyring::Sr25519Keyring;
 use std::{
-	sync::{atomic::{AtomicBool, Ordering}, Arc},
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 	time::Duration,
 };
 
@@ -60,7 +66,9 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {
-		task_manager.spawn_handle().spawn("telemetry", None, worker.run());
+		task_manager
+			.spawn_handle()
+			.spawn("telemetry", None, worker.run());
 		telemetry
 	});
 
@@ -122,6 +130,7 @@ pub fn new_full<
 >(
 	config: Configuration,
 	disable_pow_mining: bool,
+	pow_payout_account: Option<solochain_template_runtime::AccountId>,
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -143,7 +152,11 @@ pub fn new_full<
 
 	let peer_store_handle = net_config.peer_store_handle();
 	let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
-		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
+		&client
+			.block_hash(0)
+			.ok()
+			.flatten()
+			.expect("Genesis block exists; qed"),
 		&config.chain_spec,
 	);
 	let (grandpa_protocol_config, grandpa_notification_service) =
@@ -191,10 +204,13 @@ pub fn new_full<
 		task_manager.spawn_handle().spawn(
 			"offchain-workers-runner",
 			"offchain-worker",
-			offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
+			offchain_workers
+				.run(client.clone(), task_manager.spawn_handle())
+				.boxed(),
 		);
 	}
 
+	let chain_type = config.chain_spec.chain_type();
 	let role = config.role;
 	let name = config.network.node_name.clone();
 	let enable_grandpa = !config.disable_grandpa;
@@ -205,7 +221,10 @@ pub fn new_full<
 		let pool = transaction_pool.clone();
 
 		Box::new(move |_| {
-			let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone() };
+			let deps = crate::rpc::FullDeps {
+				client: client.clone(),
+				pool: pool.clone(),
+			};
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})
 	};
@@ -227,6 +246,20 @@ pub fn new_full<
 	})?;
 
 	if role.is_authority() && !disable_pow_mining {
+		let payout_account = match pow_payout_account {
+			Some(account) => account,
+			None if matches!(chain_type, ChainType::Development | ChainType::Local) => {
+				Sr25519Keyring::Alice.to_account_id()
+			}
+			None => {
+				return Err(ServiceError::Other(
+					"--pow-payout-account is required for PoW mining on a live chain".into(),
+				))
+			}
+		};
+		let mut payout_digest = vec![0u8];
+		payout_digest.extend_from_slice(payout_account.as_ref());
+
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
@@ -253,7 +286,7 @@ pub fn new_full<
 			proposer_factory,
 			sync_service.clone(),
 			sync_service.clone(),
-			None,
+			Some(payout_digest),
 			move |_, ()| async move {
 				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 				Ok((timestamp,))
@@ -262,9 +295,11 @@ pub fn new_full<
 			Duration::from_secs(1),
 		);
 
-		task_manager
-			.spawn_essential_handle()
-			.spawn_blocking("pow-worker", Some("block-authoring"), worker_task);
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"pow-worker",
+			Some("block-authoring"),
+			worker_task,
+		);
 		let stop = Arc::new(AtomicBool::new(false));
 		let mining_stop = stop.clone();
 		let mining_handle = std::thread::spawn(move || {
@@ -306,7 +341,11 @@ pub fn new_full<
 	if enable_grandpa {
 		// if the node isn't actively participating in consensus then it doesn't
 		// need a keystore, regardless of which protocol we use below.
-		let keystore = if role.is_authority() { Some(keystore_container.keystore()) } else { None };
+		let keystore = if role.is_authority() {
+			Some(keystore_container.keystore())
+		} else {
+			None
+		};
 
 		let grandpa_config = sc_consensus_grandpa::Config {
 			// FIXME #1578 make this available through chainspec

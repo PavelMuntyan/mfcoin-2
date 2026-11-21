@@ -4,17 +4,27 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 10: a production-candidate chain configuration. This is not a launched mainnet or a claim of production readiness.
+Contour 13: native emission accounting and PoW/treasury rewards in development. This is not a launched mainnet or active mainnet tokenomics.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
 The project is being built incrementally: base node and GRANDPA finality first, then an isolated PoW authoring contour, Freeland records, rewards and public testnet. AuxPoW, EVM and ZK features are intentionally deferred until the base network is proven.
 
-Runtime `spec_version` is `109`. Sudo, the template pallet and Aura have been removed from the runtime; GRANDPA is the only session key. Issuer changes have no root or development-account bypass and still require on-chain multisig approval followed by the timelock. Development accounts remain in the dev/local presets and the explicitly non-production example configuration.
+Runtime `spec_version` is `110`. Sudo, the template pallet and Aura have been removed from the runtime; GRANDPA is the only session key. Issuer changes have no root or development-account bypass and still require on-chain multisig approval followed by the timelock. Development accounts remain in the dev/local presets and the explicitly non-production example configuration.
 
 The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration.
 
-Verified: 27 workspace tests, 18 active pallet tests with runtime benchmarks, both clippy configurations and all 3 indexer tests pass. The isolated production-candidate example finalized block 40, executed its multisig/timelocked issuer change and finalized a synthetic passport record with a verified 256-sibling registry proof. The multi-node regression separately confirmed finality loss/recovery, canonical reorg handling and `orphaned` indexer history.
+Verified: 43 workspace tests, 7 JavaScript address-codec tests, 3 indexer tests and both clippy configurations pass. The isolated production-candidate example finalized block 40, executed its multisig/timelocked issuer change and finalized a synthetic passport record with a verified 256-sibling registry proof. The multi-node regression separately confirmed finality loss/recovery, canonical reorg handling and `orphaned` indexer history.
+
+## Native reward ledger
+
+`pallet-mfc-rewards` implements integer-only emission accounting: 10,000,000 MFC in year one, a 10% annual reduction for 20 years, then 500,000 MFC per year. The target is 6 seconds per block and 5,256,000 blocks per year. Subsidy is split into 45% community PoW, 35% GRANDPA and 20% treasury; rounding remainder goes to treasury so the parts always sum to the whole subsidy.
+
+Each PoW `PreRuntime` digest carries `version=0 + AccountId32` for the public payout address. Live mining requires an explicit `--pow-payout-account`; no private payout key is stored on the node. There is no root extrinsic or manual mint.
+
+Obligations are recorded in canonical block state. PoW and treasury mature after 10 blocks in the development configuration, while the GRANDPA share is only accrued and is not minted or paid until verifiable validator work is implemented. Canonical maturation is not a claim of GRANDPA finality proof. Development presets enable this ledger for testing; the production example and the existing six-node testnet have not activated a new emission schedule.
+
+Read-only `mfc_rewardTotals(at?)` and `mfc_rewardObligation(block, at?)` expose accounting for independent verification. Amounts are strings to avoid JavaScript precision loss.
 
 ## Canonical account addresses
 

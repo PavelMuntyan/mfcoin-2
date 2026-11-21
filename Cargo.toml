@@ -9,6 +9,7 @@ edition = "2021"
 members = [
     "node",
     "pallets/freeland-records",
+    "pallets/mfc-rewards",
     "pallets/template",
     "primitives/address",
     "runtime",
@@ -57,6 +58,7 @@ zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_0
 [workspace.dependencies]
 solochain-template-runtime = { path = "./runtime", default-features = false }
 pallet-freeland-records = { path = "./pallets/freeland-records", default-features = false }
+pallet-mfc-rewards = { path = "./pallets/mfc-rewards", default-features = false }
 pallet-template = { path = "./pallets/template", default-features = false }
 clap = { version = "4.5.13" }
 frame-benchmarking-cli = { version = "53.0.0", default-features = false }
