@@ -30,7 +30,8 @@ const EMPTY_RECORDS_DOMAIN: &[u8] = b"MFC/freeland-empty-records/v1";
 const BLOCK_INFO_DOMAIN: &[u8] = b"MFC/freeland-block-info/v1";
 
 #[derive(Clone, Copy, Decode, codec::DecodeWithMemTracking, Encode, Eq, MaxEncodedLen, Ord, PartialEq, PartialOrd, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize), serde(rename_all = "lowercase"))]
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum RecordKind {
 	#[codec(index = 0)]
 	Passport,
@@ -45,6 +46,8 @@ pub enum RecordKind {
 }
 
 #[derive(Clone, Copy, Decode, codec::DecodeWithMemTracking, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum RecordAction {
 	#[codec(index = 0)]
 	Issue,
@@ -105,6 +108,56 @@ impl<AccountId: Encode> FreelandRecord<AccountId> {
 	}
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FreelandRecordSerde {
+	version: u16,
+	kind: RecordKind,
+	action: RecordAction,
+	subject_commitment: H256,
+	payload_hash: H256,
+	issuer: sp_core::crypto::AccountId32,
+	nonce: u64,
+	evidence_hash: H256,
+}
+
+impl From<&FreelandRecord<sp_core::crypto::AccountId32>> for FreelandRecordSerde {
+	fn from(record: &FreelandRecord<sp_core::crypto::AccountId32>) -> Self {
+		Self {
+			version: record.version,
+			kind: record.kind,
+			action: record.action,
+			subject_commitment: record.subject_commitment,
+			payload_hash: record.payload_hash,
+			issuer: record.issuer.clone(),
+			nonce: record.nonce,
+			evidence_hash: record.evidence_hash,
+		}
+	}
+}
+
+impl serde::Serialize for FreelandRecord<sp_core::crypto::AccountId32> {
+	fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+		FreelandRecordSerde::from(self).serialize(serializer)
+	}
+}
+
+impl<'de> serde::Deserialize<'de> for FreelandRecord<sp_core::crypto::AccountId32> {
+	fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		let record = FreelandRecordSerde::deserialize(deserializer)?;
+		Ok(Self {
+			version: record.version,
+			kind: record.kind,
+			action: record.action,
+			subject_commitment: record.subject_commitment,
+			payload_hash: record.payload_hash,
+			issuer: record.issuer,
+			nonce: record.nonce,
+			evidence_hash: record.evidence_hash,
+		})
+	}
+}
+
 #[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct FreelandBlockInfo {
 	pub version: u16,
@@ -159,7 +212,7 @@ pub fn records_root(record_ids: &[H256]) -> H256 {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, DefaultNoBound};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::generic::DigestItem;
 
@@ -172,6 +225,48 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type MaxRecordsPerBlock: Get<u32>;
 		type WeightInfo: WeightInfo;
+	}
+
+	#[pallet::genesis_config]
+	#[derive(DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		#[serde(default)]
+		pub records: Vec<FreelandRecord<sp_core::crypto::AccountId32>>,
+		#[serde(skip)]
+		pub _phantom: core::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			for record in &self.records {
+				assert_eq!(record.version, RECORD_VERSION, "unsupported genesis record version");
+				let record = FreelandRecord::<T::AccountId> {
+					version: record.version,
+					kind: record.kind,
+					action: record.action,
+					subject_commitment: record.subject_commitment,
+					payload_hash: record.payload_hash,
+					issuer: T::AccountId::decode(&mut &record.issuer.encode()[..])
+						.expect("genesis issuer uses the runtime account encoding"),
+					nonce: record.nonce,
+					evidence_hash: record.evidence_hash,
+				};
+				LatestRecords::<T>::set(record.kind, record.subject_commitment, Some(record.clone()));
+				let next_nonce = record.nonce.saturating_add(1);
+				if NextNonce::<T>::get(&record.issuer) < next_nonce {
+					NextNonce::<T>::set(&record.issuer, next_nonce);
+				}
+				Pallet::<T>::update_registry(RegistryEntry {
+					kind: record.kind,
+					subject_commitment: record.subject_commitment,
+					record_id: record.id(),
+				})
+				.expect("genesis registry key must be unique");
+			}
+			assert_eq!(RegistryLeaves::<T>::iter().count(), self.records.len(), "duplicate genesis registry key");
+			TotalRecords::<T>::set(self.records.len() as u64);
+		}
 	}
 
 	#[pallet::storage]
@@ -402,5 +497,7 @@ sp_api::decl_runtime_apis! {
 		) -> Option<FreelandRecord<AccountId>>;
 		fn registry_proof(kind: RecordKind, subject_commitment: H256) -> RegistryProof;
 		fn block_records() -> Vec<(u32, FreelandRecord<AccountId>)>;
+		fn block_records_page(offset: u32, limit: u32) -> Vec<(u32, FreelandRecord<AccountId>)>;
+		fn total_records() -> u64;
 	}
 }

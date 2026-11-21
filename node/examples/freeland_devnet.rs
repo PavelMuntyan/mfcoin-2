@@ -1,7 +1,7 @@
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use pallet_freeland_records::{verify_registry_proof, RegistryProof};
 use sp_core::H256;
-use subxt::{dynamic::Value, OnlineClient, PolkadotConfig};
+use subxt::{config::DefaultExtrinsicParamsBuilder, dynamic::Value, tx::TxStatus, OnlineClient, PolkadotConfig};
 use subxt_signer::sr25519::dev;
 
 #[tokio::main]
@@ -12,6 +12,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	let api = OnlineClient::<PolkadotConfig>::from_insecure_url(&url).await?;
+	let wait_for_finality = std::env::var("FREELAND_WAIT_FOR_FINALITY").unwrap_or_default() != "0";
 	let alice = dev::alice();
 	let set_issuer = Value::unnamed_variant(
 		"FreelandRecords",
@@ -25,13 +26,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		)],
 	);
 	let sudo = subxt::dynamic::tx("Sudo", "sudo", vec![set_issuer]);
-	let issuer_events = api
-		.tx()
-		.sign_and_submit_then_watch_default(&sudo, &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-	println!("issuer_update_finalized={:#x}", issuer_events.extrinsic_hash());
+	if wait_for_finality {
+		let events = api
+			.tx()
+			.sign_and_submit_then_watch_default(&sudo, &alice)
+			.await?
+			.wait_for_finalized_success()
+			.await?;
+		println!("issuer_update_finalized={:#x}", events.extrinsic_hash());
+	} else {
+		let mut progress = api.tx().sign_and_submit_then_watch_default(&sudo, &alice).await?;
+		while let Some(status) = progress.next().await {
+			match status? {
+				TxStatus::InBestBlock(details) => {
+					println!("issuer_update_in_block={:#x}", details.extrinsic_hash());
+					break;
+				},
+				TxStatus::Error { message } => return Err(format!("issuer update failed: {message}").into()),
+				TxStatus::Invalid { message } => return Err(format!("issuer update invalid: {message}").into()),
+				TxStatus::Dropped { message } => return Err(format!("issuer update dropped: {message}").into()),
+				_ => {},
+			}
+		}
+	}
 
 	let subject = H256([0x11; 32]);
 	let record = subxt::dynamic::tx(
@@ -46,14 +63,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			Value::from_bytes([0x33; 32]),
 		],
 	);
-	let record_events = api
-		.tx()
-		.sign_and_submit_then_watch_default(&record, &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
-	println!("record_finalized={:#x}", record_events.extrinsic_hash());
+	if wait_for_finality {
+		let events = api
+			.tx()
+			.sign_and_submit_then_watch_default(&record, &alice)
+			.await?
+			.wait_for_finalized_success()
+			.await?;
+		println!("record_finalized={:#x}", events.extrinsic_hash());
+	} else {
+		let params = DefaultExtrinsicParamsBuilder::default().nonce(1).build();
+		let mut transaction = api.tx().create_partial_offline(&record, params)?;
+		let hash = transaction.sign(&alice).submit().await?;
+		println!("record_submitted={hash:#x}");
+	}
 	println!("subject_commitment={subject:#x}");
+	if !wait_for_finality {
+		return Ok(());
+	}
 
 	let http = HttpClientBuilder::default().build(url.replace("ws://", "http://"))?;
 	let finalized = http.request::<H256, _>("chain_getFinalizedHead", rpc_params![]).await?;

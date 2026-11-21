@@ -70,6 +70,11 @@ class MockChain {
     if (method === "chain_getFinalizedHead") return this.finalizedHash;
     if (method === "freeland_latestBlockInfo") return this.blocks.get(params[0]).info;
     if (method === "freeland_blockRecords") return this.blocks.get(params[0]).records;
+    if (method === "freeland_blockRecordsPage") {
+      const [offset, limit, hash] = params;
+      return this.blocks.get(hash).records.slice(offset, offset + limit);
+    }
+    if (method === "freeland_totalRecords") return this.blocks.get(params[0]).records.length;
     if (method === "freeland_registryProof") {
       return { kind: params[0], subjectCommitment: params[1], entry: null, root: `0x${"05".repeat(32)}`, siblings: [] };
     }

@@ -184,7 +184,10 @@ pub fn run() -> sc_cli::Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run)?;
 			let disable_pow_mining = cli.disable_pow_mining;
+			let runtime_heap_pages = cli.runtime_heap_pages;
 			runner.run_node_until_exit(|config| async move {
+				let mut config = config;
+				config.executor.default_heap_pages = runtime_heap_pages;
 				match config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p => service::new_full::<
 						sc_network::NetworkWorker<

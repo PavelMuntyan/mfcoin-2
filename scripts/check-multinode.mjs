@@ -6,6 +6,9 @@ import path from "node:path";
 
 const binary = path.resolve("target/release/solochain-template-node");
 const root = path.resolve(".devnet/multinode-v1");
+const checkIndexer = process.env.CHECK_INDEXER === "1";
+const indexerDirectory = path.resolve("indexer");
+const syntheticSubject = `0x${"11".repeat(32)}`;
 const children = new Set();
 const results = {};
 
@@ -106,6 +109,46 @@ async function stopNode(entry) {
 
 async function stopAll() {
   await Promise.all([...children].map(stopNode));
+  if (checkIndexer) {
+    spawnSync("docker", ["compose", "stop"], { cwd: indexerDirectory, stdio: "ignore" });
+  }
+}
+
+async function startIndexer() {
+  const database = spawnSync("docker", ["compose", "up", "-d", "--wait"], { cwd: indexerDirectory, encoding: "utf8" });
+  if (database.status !== 0) throw new Error(`Could not start indexer PostgreSQL: ${database.stderr}`);
+  const log = createWriteStream(path.join(root, "indexer.log"));
+  const child = spawn("npm", ["start"], {
+    cwd: indexerDirectory,
+    env: { ...process.env, CHAIN_RPC_URL: "http://127.0.0.1:9945", INDEXER_RESET: "1" },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  child.stdout.pipe(log);
+  child.stderr.pipe(log);
+  const entry = { child, scenario: "infra", name: "indexer", log };
+  children.add(entry);
+  child.once("exit", () => children.delete(entry));
+}
+
+async function submitRecordOnBob() {
+  const example = spawnSync(path.resolve("target/release/examples/freeland_devnet"), [], {
+    env: { ...process.env, DEVNET_WS_URL: "ws://127.0.0.1:9945", FREELAND_WAIT_FOR_FINALITY: "0" },
+    encoding: "utf8",
+    timeout: 120_000
+  });
+  if (example.status !== 0) throw new Error(`Could not submit Bob record: ${example.stdout}\n${example.stderr}`);
+  await waitFor("Bob record included", async () => {
+    const records = await fetch(`http://127.0.0.1:8787/freeland/records/${syntheticSubject}`).then(response => response.json());
+    return records.some(record => record.status === "included");
+  });
+}
+
+async function checkOrphanedRecord() {
+  await waitFor("Bob record orphaned", async () => {
+    const records = await fetch(`http://127.0.0.1:8787/freeland/records/${syntheticSubject}?status=orphaned`).then(response => response.json());
+    return records.length > 0;
+  });
+  results.indexerOrphaned = true;
 }
 
 function bootnode(peerId, port = 30333) {
@@ -153,15 +196,23 @@ async function quorumScenario() {
 async function reorgScenario() {
   const scenario = "reorg";
   await fs.mkdir(path.join(root, scenario), { recursive: true });
+  if (checkIndexer) await startIndexer();
   await startNode({ scenario, name: "alice", rpcPort: 9944, p2pPort: 30333 });
   await waitFor("isolated Alice chain", () => best(9944).then(number => number >= 4));
   const peerId = await rpc(9944, "system_localPeerId");
   let bob = await startNode({ scenario, name: "bob", rpcPort: 9945, p2pPort: 30334 });
   await waitFor("isolated Bob chain", () => best(9945).then(number => number >= 4));
+  if (checkIndexer) {
+    await waitFor("indexer API", async () => {
+      const response = await fetch("http://127.0.0.1:8787/health");
+      return response.ok;
+    }, 120_000);
+  }
 
   const aliceForkHash = await rpc(9944, "chain_getBlockHash", [2]);
   const bobForkHash = await rpc(9945, "chain_getBlockHash", [2]);
   assert.notEqual(aliceForkHash, bobForkHash, "Isolated nodes unexpectedly produced the same chain");
+  if (checkIndexer) await submitRecordOnBob();
   const orphanBest = await best(9945);
   await stopNode(bob);
   const targetBest = orphanBest + 5;
@@ -176,6 +227,7 @@ async function reorgScenario() {
   assert.equal(adoptedHash, canonicalHash, "Bob did not adopt Alice's canonical hash");
   assert.notEqual(adoptedHash, bobForkHash, "Bob kept the orphaned fork");
   assert.equal((await finalized(9945)).number, 0, "Fork should not finalize without a validator quorum");
+  if (checkIndexer) await checkOrphanedRecord();
   results.reorgDetails = { orphanedHash: bobForkHash, adoptedHash, height: await best(9945) };
   await stopAll();
 }

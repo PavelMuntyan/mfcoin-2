@@ -72,6 +72,14 @@ pub trait Freeland {
 	/// Return Freeland records submitted in a block with their extrinsic indexes.
 	#[method(name = "blockRecords")]
 	fn block_records(&self, at: Option<H256>) -> RpcResult<Vec<Value>>;
+
+	/// Return a bounded page of records from a block.
+	#[method(name = "blockRecordsPage")]
+	fn block_records_page(&self, offset: u32, limit: u32, at: Option<H256>) -> RpcResult<Vec<Value>>;
+
+	/// Return the total number of Freeland records in the current state.
+	#[method(name = "totalRecords")]
+	fn total_records(&self, at: Option<H256>) -> RpcResult<u64>;
 }
 
 impl<C> FreelandServer for FreelandRpc<C>
@@ -134,6 +142,28 @@ where
 				value
 			})
 			.collect())
+	}
+
+	fn block_records_page(&self, offset: u32, limit: u32, at: Option<H256>) -> RpcResult<Vec<Value>> {
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+		let records = self
+			.client
+			.runtime_api()
+			.block_records_page(at, offset, limit)
+			.map_err(runtime_error)?;
+		Ok(records
+			.into_iter()
+			.map(|(extrinsic_index, record)| {
+				let mut value = record_json(record);
+				value["extrinsicIndex"] = extrinsic_index.into();
+				value
+			})
+			.collect())
+	}
+
+	fn total_records(&self, at: Option<H256>) -> RpcResult<u64> {
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+		self.client.runtime_api().total_records(at).map_err(runtime_error)
 	}
 }
 

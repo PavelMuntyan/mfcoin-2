@@ -313,6 +313,12 @@ impl_runtime_apis! {
 		}
 
 		fn block_records() -> Vec<(u32, FreelandRecord<AccountId>)> {
+			if frame_system::Pallet::<Runtime>::block_number() == 0 {
+				return pallet_freeland_records::LatestRecords::<Runtime>::iter()
+					.enumerate()
+					.map(|(index, (_, _, record))| (index as u32, record))
+					.collect();
+			}
 			frame_system::Pallet::<Runtime>::read_events_no_consensus()
 				.into_iter()
 				.filter_map(|record| {
@@ -346,6 +352,18 @@ impl_runtime_apis! {
 					}
 				})
 				.collect()
+		}
+
+		fn block_records_page(offset: u32, limit: u32) -> Vec<(u32, FreelandRecord<AccountId>)> {
+			Self::block_records()
+				.into_iter()
+				.skip(offset as usize)
+				.take(limit.min(1_000) as usize)
+				.collect()
+		}
+
+		fn total_records() -> u64 {
+			pallet_freeland_records::TotalRecords::<Runtime>::get()
 		}
 	}
 

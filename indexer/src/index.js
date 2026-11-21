@@ -17,7 +17,8 @@ const indexer = new FreelandIndexer(sql, rpc, {
 });
 
 let chainReady = false;
-for (let attempt = 0; attempt < 120 && !chainReady; attempt += 1) {
+const chainWaitAttempts = Number(process.env.CHAIN_RPC_WAIT_ATTEMPTS || 600);
+for (let attempt = 0; attempt < chainWaitAttempts && !chainReady; attempt += 1) {
   try {
     await rpc("chain_getBlockHash", [0]);
     chainReady = true;
@@ -27,6 +28,10 @@ for (let attempt = 0; attempt < 120 && !chainReady; attempt += 1) {
 }
 if (!chainReady) throw new Error(`Chain RPC is unavailable at ${chainRpcUrl}`);
 await indexer.init();
+if (process.env.INDEXER_RESET === "1") {
+  await sql`TRUNCATE freeland_records, freeland_block_info, indexer_state RESTART IDENTITY CASCADE`;
+  await indexer.init();
+}
 
 const server = createApiServer(sql, rpc, indexer);
 server.listen(port, host, () => {

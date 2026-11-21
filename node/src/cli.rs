@@ -9,6 +9,10 @@ pub struct Cli {
 	/// Participate in GRANDPA without authoring PoW blocks.
 	#[arg(long)]
 	pub disable_pow_mining: bool,
+
+	/// Override the number of 64 KiB pages allocated to the runtime.
+	#[arg(long)]
+	pub runtime_heap_pages: Option<u64>,
 }
 
 #[derive(Debug, clap::Subcommand)]
