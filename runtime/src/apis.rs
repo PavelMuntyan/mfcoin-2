@@ -30,6 +30,7 @@ use frame_support::{
 	traits::UnixTime,
 	weights::Weight,
 };
+use pallet_freeland_records::{FreelandBlockInfo, FreelandRecord, RecordKind, RegistryEntry};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -292,6 +293,23 @@ impl_runtime_apis! {
 	impl sp_consensus_pow::TimestampApi<Block, u64> for Runtime {
 		fn timestamp() -> u64 {
 			u64::try_from(pallet_timestamp::Pallet::<Runtime>::now().as_millis()).unwrap_or(u64::MAX)
+		}
+	}
+
+	impl pallet_freeland_records::FreelandApi<Block, AccountId> for Runtime {
+		fn latest_block_info() -> Option<FreelandBlockInfo> {
+			pallet_freeland_records::LatestBlockInfo::<Runtime>::get()
+		}
+
+		fn latest_record(
+			kind: RecordKind,
+			subject_commitment: sp_core::H256,
+		) -> Option<FreelandRecord<AccountId>> {
+			pallet_freeland_records::LatestRecords::<Runtime>::get(kind, subject_commitment)
+		}
+
+		fn registry_entries() -> Vec<RegistryEntry> {
+			pallet_freeland_records::RegistryEntries::<Runtime>::get().into_inner()
 		}
 	}
 

@@ -6295,6 +6295,7 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
+ "sp-api",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -10144,6 +10145,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "jsonrpsee",
+ "pallet-freeland-records",
  "pallet-staking",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
@@ -10160,6 +10162,7 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
+ "serde_json",
  "solochain-template-runtime",
  "sp-api",
  "sp-block-builder",
@@ -10176,6 +10179,9 @@ dependencies = [
  "sp-timestamp",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
+ "subxt",
+ "subxt-signer",
+ "tokio",
 ]
 
 [[package]]
@@ -11309,6 +11315,7 @@ dependencies = [
  "frame-metadata",
  "futures",
  "hex",
+ "jsonrpsee",
  "parity-scale-codec",
  "primitive-types",
  "scale-bits",
@@ -11329,6 +11336,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "url",
+ "wasm-bindgen-futures",
  "web-time",
 ]
 
@@ -11447,6 +11455,7 @@ dependencies = [
  "subxt-core",
  "subxt-lightclient",
  "thiserror 2.0.18",
+ "tokio-util",
  "tracing",
  "url",
 ]

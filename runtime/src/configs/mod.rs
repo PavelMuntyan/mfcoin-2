@@ -173,4 +173,5 @@ impl pallet_template::Config for Runtime {
 impl pallet_freeland_records::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxRecordsPerBlock = ConstU32<64>;
+	type MaxRegistryEntries = ConstU32<256>;
 }

@@ -29,6 +29,8 @@ futures = { features = ["thread-pool"], workspace = true }
 futures-timer.workspace = true
 sp-crypto-hashing.workspace = true
 jsonrpsee = { features = ["server"], workspace = true }
+pallet-freeland-records.default-features = true
+pallet-freeland-records.workspace = true
 pallet-transaction-payment.default-features = true
 pallet-transaction-payment.workspace = true
 pallet-transaction-payment-rpc.default-features = true
@@ -60,6 +62,7 @@ sc-transaction-pool.default-features = true
 sc-transaction-pool.workspace = true
 sc-transaction-pool-api.default-features = true
 sc-transaction-pool-api.workspace = true
+serde_json = { features = ["std"], workspace = true }
 solochain-template-runtime.workspace = true
 sp-api.default-features = true
 sp-api.workspace = true
@@ -87,6 +90,11 @@ sp-timestamp.default-features = true
 sp-timestamp.workspace = true
 substrate-frame-rpc-system.default-features = true
 substrate-frame-rpc-system.workspace = true
+
+[dev-dependencies]
+subxt.workspace = true
+subxt-signer.workspace = true
+tokio = { features = ["macros", "rt-multi-thread"], workspace = true }
 
 [build-dependencies]
 substrate-build-script-utils.default-features = true

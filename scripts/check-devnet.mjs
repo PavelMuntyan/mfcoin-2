@@ -22,6 +22,7 @@ const second = await rpc("chain_getHeader");
 const finalizedHash = await rpc("chain_getFinalizedHead");
 const finalized = await rpc("chain_getHeader", [finalizedHash]);
 const bestBlock = await rpc("chain_getBlock");
+const bestHash = await rpc("chain_getBlockHash", [blockNumber(bestBlock.block.header)]);
 const logs = bestBlock.block.header.digest.logs;
 const powSeal = logs.find(log => log.startsWith("0x05706f775f"));
 const freelandInfo = logs.find(log => log.startsWith("0x00904d464346") && log.length === 78);
@@ -32,6 +33,19 @@ if (blockNumber(second) <= blockNumber(first)) {
 if (!powSeal) throw new Error("PoW seal not found in the best block");
 if (!freelandInfo) throw new Error("FreelandBlockInfo root not found in the best block");
 
+const freelandInfoRoot = `0x${freelandInfo.slice(-64)}`;
+const blockInfo = await rpc("freeland_latestBlockInfo", [bestHash]);
+if (blockInfo?.infoRoot !== freelandInfoRoot) {
+  throw new Error("Freeland RPC info root does not match the block digest");
+}
+const registryEntries = await rpc("freeland_registryEntries", [bestHash]);
+for (const entry of registryEntries) {
+  const record = await rpc("freeland_latestRecord", [entry.kind, entry.subjectCommitment, bestHash]);
+  if (!record || record.recordId !== entry.recordId) {
+    throw new Error(`Registry entry does not match its latest record: ${entry.subjectCommitment}`);
+  }
+}
+
 console.log(JSON.stringify({
   firstBest: first.number,
   currentBest: second.number,
@@ -39,5 +53,7 @@ console.log(JSON.stringify({
   finalizedHash,
   advancing: true,
   powSeal: true,
-  freelandInfoRoot: `0x${freelandInfo.slice(-64)}`
+  freelandInfoRoot,
+  freelandApi: true,
+  registryEntries: registryEntries.length
 }, null, 2));

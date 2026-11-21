@@ -1,7 +1,7 @@
 use crate::{
-	mock::*, records_root, BlockRecordIds, Error, Event, FreelandBlockInfo, IssuerPermissions,
-	LatestBlockInfo, LatestRecords, NextNonce, RecordAction, RecordKind, TotalRecords,
-	FREELAND_INFO_ENGINE_ID,
+	mock::*, records_root, registry_root, BlockRecordIds, Error, Event, FreelandBlockInfo,
+	IssuerPermissions, LatestBlockInfo, LatestRecords, NextNonce, RecordAction, RecordKind,
+	RegistryEntries, TotalRecords, FREELAND_INFO_ENGINE_ID,
 };
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok, traits::Hooks};
@@ -16,21 +16,31 @@ fn allow(kind: RecordKind, issuer: u64) {
 	assert_ok!(FreelandRecords::set_issuer(RuntimeOrigin::root(), kind, issuer, true));
 }
 
-fn submit(
+fn submit_subject(
 	issuer: u64,
 	kind: RecordKind,
 	action: RecordAction,
+	subject_commitment: H256,
 	nonce: u64,
 ) -> Result<(), DispatchError> {
 	FreelandRecords::submit_record(
 		RuntimeOrigin::signed(issuer),
 		kind,
 		action,
-		hash(10),
+		subject_commitment,
 		hash(20),
 		nonce,
 		hash(30),
 	)
+}
+
+fn submit(
+	issuer: u64,
+	kind: RecordKind,
+	action: RecordAction,
+	nonce: u64,
+) -> Result<(), DispatchError> {
+	submit_subject(issuer, kind, action, hash(10), nonce)
 }
 
 #[test]
@@ -48,6 +58,7 @@ fn authorized_issuer_submits_typed_record() {
 		assert_eq!(NextNonce::<Test>::get(1), 1);
 		assert_eq!(TotalRecords::<Test>::get(), 1);
 		assert_eq!(BlockRecordIds::<Test>::get().len(), 1);
+		assert_eq!(RegistryEntries::<Test>::get().len(), 1);
 		assert!(System::events().iter().any(|event| matches!(
 			event.event,
 			RuntimeEvent::FreelandRecords(Event::RecordSubmitted { nonce: 0, .. })
@@ -81,6 +92,7 @@ fn replay_is_rejected_and_next_nonce_is_accepted() {
 		);
 		assert_ok!(submit(1, RecordKind::Document, RecordAction::Update, 1));
 		assert_eq!(TotalRecords::<Test>::get(), 2);
+		assert!(RegistryEntries::<Test>::get().is_empty());
 	});
 }
 
@@ -121,12 +133,59 @@ fn block_record_limit_is_enforced() {
 }
 
 #[test]
+fn registry_limit_is_enforced_without_consuming_nonce() {
+	new_test_ext().execute_with(|| {
+		allow(RecordKind::Passport, 1);
+		assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(1), 0));
+		assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(2), 1));
+		FreelandRecords::on_finalize(1);
+		assert_noop!(
+			submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(3), 2),
+			Error::<Test>::RegistryFull
+		);
+		assert_eq!(NextNonce::<Test>::get(1), 2);
+		assert_eq!(TotalRecords::<Test>::get(), 2);
+		assert_eq!(RegistryEntries::<Test>::get().len(), 2);
+	});
+}
+
+#[test]
+fn registry_tracks_latest_state_and_is_order_independent() {
+	let forward = |reverse: bool| {
+		new_test_ext().execute_with(|| {
+			allow(RecordKind::Passport, 1);
+			allow(RecordKind::Citizen, 2);
+			if reverse {
+				assert_ok!(submit_subject(2, RecordKind::Citizen, RecordAction::Issue, hash(2), 0));
+				assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(1), 0));
+			} else {
+				assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(1), 0));
+				assert_ok!(submit_subject(2, RecordKind::Citizen, RecordAction::Issue, hash(2), 0));
+			}
+			registry_root(&RegistryEntries::<Test>::get())
+		})
+	};
+	assert_eq!(forward(false), forward(true));
+
+	new_test_ext().execute_with(|| {
+		allow(RecordKind::Passport, 1);
+		assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(1), 0));
+		let issued = registry_root(&RegistryEntries::<Test>::get());
+		assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Revoke, hash(1), 1));
+		let revoked = registry_root(&RegistryEntries::<Test>::get());
+		assert_ne!(issued, revoked);
+		assert_eq!(RegistryEntries::<Test>::get().len(), 1);
+	});
+}
+
+#[test]
 fn block_info_links_roots_and_deposits_digest() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 		FreelandRecords::on_finalize(1);
 		let first = LatestBlockInfo::<Test>::get().unwrap();
 		assert_eq!(first.records_root, records_root(&[]));
+		assert_eq!(first.registry_root, registry_root(&[]));
 		assert_eq!(first.records_count, 0);
 		assert_eq!(first.previous_info_root, H256::zero());
 
@@ -138,6 +197,7 @@ fn block_info_links_roots_and_deposits_digest() {
 		let second = LatestBlockInfo::<Test>::get().unwrap();
 		assert_eq!(second.previous_info_root, first.root());
 		assert_eq!(second.records_root, records_root(&record_ids));
+		assert_eq!(second.registry_root, registry_root(&RegistryEntries::<Test>::get()));
 		assert_eq!(second.records_count, 1);
 		assert!(BlockRecordIds::<Test>::get().is_empty());
 		assert!(System::digest().logs.iter().any(|log| {
@@ -161,7 +221,7 @@ fn block_info_type_has_explicit_reserved_fields() {
 		version: 1,
 		previous_info_root: H256::zero(),
 		records_root: records_root(&[]),
-		registry_root: H256::zero(),
+		registry_root: registry_root(&[]),
 		governance_root: H256::zero(),
 		records_count: 0,
 		epoch: 0,
