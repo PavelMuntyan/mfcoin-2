@@ -4,15 +4,15 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 4: PoW and GRANDPA with queryable Freeland records and a live registry commitment.
+Contour 5: measured Freeland weights plus multi-node, quorum-loss and reorg verification.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
 The project is being built incrementally: base node and GRANDPA finality first, then an isolated PoW authoring contour, Freeland records, rewards and public testnet. AuxPoW, EVM and ZK features are intentionally deferred until the base network is proven.
 
-Verified: the release build completed on Rust `1.88.0`, and the devnet advanced best block `0x77 -> 0x79` with finalized block `0x77`. The best block contained both a `pow_` seal and an `MFCF` Freeland info root. All 22 workspace tests pass. A development Alice key assigned a passport issuer through sudo and submitted a signed record; the finalized record, registry entry and root were verified through JSON-RPC.
+Verified: all 22 workspace tests and 15 pallet tests with runtime benchmarks pass. Four validators ran with two PoW miners; losing half the validator set stalled finality at block 9 while PoW continued, and restarting validators recovered finality at block 10. Two isolated forks were produced and Bob adopted Alice's canonical hash at block 12. A separate chain crossed the retarget boundary with best block 65 and finalized block 62. Release and both workspace clippy configurations pass with warnings denied.
 
-The development contour now uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration.
+The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration. Runtime `spec_version` is `103`.
 
 ## Freeland data contour
 
@@ -57,6 +57,18 @@ node scripts/check-devnet.mjs
 ```
 
 The check confirms block production and finality, requires PoW and Freeland digests, compares the RPC info root with the digest, and validates every registry entry against its latest record.
+
+## Benchmarks and multi-node checks
+
+```sh
+cargo +1.88.0 test -p pallet-freeland-records --features runtime-benchmarks
+cargo +1.88.0 build --release
+node scripts/check-multinode.mjs
+```
+
+The multi-node script starts four validators, with only Alice and Bob mining. It verifies finality loss and recovery after Bob and Dave go offline, then builds two isolated forks and verifies that Bob adopts the canonical chain. Processes, keys and logs stay under `.devnet/multinode-v1/`; mDNS is disabled so isolation is explicit.
+
+Validator-only nodes use `--disable-pow-mining`. Generated weights live in `pallets/freeland-records/src/weights.rs` and were measured with 50 steps and 20 repeats using compiled WASM execution.
 
 ## Read-only Freeland RPC
 

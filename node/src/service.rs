@@ -121,6 +121,7 @@ pub fn new_full<
 	N: sc_network::NetworkBackend<Block, <Block as sp_runtime::traits::Block>::Hash>,
 >(
 	config: Configuration,
+	disable_pow_mining: bool,
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -225,7 +226,7 @@ pub fn new_full<
 		tracing_execute_block: None,
 	})?;
 
-	if role.is_authority() {
+	if role.is_authority() && !disable_pow_mining {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),

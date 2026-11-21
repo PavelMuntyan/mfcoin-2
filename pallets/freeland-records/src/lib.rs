@@ -13,6 +13,10 @@ pub use pallet::*;
 mod mock;
 #[cfg(test)]
 mod tests;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+pub mod weights;
+pub use weights::*;
 
 pub const RECORD_VERSION: u16 = 1;
 pub const FREELAND_INFO_ENGINE_ID: [u8; 4] = *b"MFCF";
@@ -183,6 +187,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type MaxRecordsPerBlock: Get<u32>;
 		type MaxRegistryEntries: Get<u32>;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::storage]
@@ -253,6 +258,10 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+			T::WeightInfo::on_finalize()
+		}
+
 		fn on_finalize(_block_number: BlockNumberFor<T>) {
 			let record_ids = BlockRecordIds::<T>::take();
 			let previous_info_root =
@@ -278,7 +287,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_issuer())]
 		pub fn set_issuer(
 			origin: OriginFor<T>,
 			kind: RecordKind,
@@ -292,7 +301,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(5, 7) + Weight::from_parts(75_000_000, 0))]
+		#[pallet::weight(T::WeightInfo::submit_record(RegistryEntries::<T>::get().len() as u32))]
 		pub fn submit_record(
 			origin: OriginFor<T>,
 			kind: RecordKind,

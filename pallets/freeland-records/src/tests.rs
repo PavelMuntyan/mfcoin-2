@@ -122,13 +122,15 @@ fn invalid_action_and_revoked_issuer_are_rejected() {
 fn block_record_limit_is_enforced() {
 	new_test_ext().execute_with(|| {
 		allow(RecordKind::Document, 1);
-		assert_ok!(submit(1, RecordKind::Document, RecordAction::Issue, 0));
-		assert_ok!(submit(1, RecordKind::Document, RecordAction::Update, 1));
+		for nonce in 0..64 {
+			let action = if nonce == 0 { RecordAction::Issue } else { RecordAction::Update };
+			assert_ok!(submit(1, RecordKind::Document, action, nonce));
+		}
 		assert_noop!(
-			submit(1, RecordKind::Document, RecordAction::Update, 2),
+			submit(1, RecordKind::Document, RecordAction::Update, 64),
 			Error::<Test>::TooManyRecords
 		);
-		assert_eq!(NextNonce::<Test>::get(1), 2);
+		assert_eq!(NextNonce::<Test>::get(1), 64);
 	});
 }
 
@@ -136,16 +138,25 @@ fn block_record_limit_is_enforced() {
 fn registry_limit_is_enforced_without_consuming_nonce() {
 	new_test_ext().execute_with(|| {
 		allow(RecordKind::Passport, 1);
-		assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(1), 0));
-		assert_ok!(submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(2), 1));
-		FreelandRecords::on_finalize(1);
+		for nonce in 0..256 {
+			assert_ok!(submit_subject(
+				1,
+				RecordKind::Passport,
+				RecordAction::Issue,
+				hash(nonce + 1),
+				nonce
+			));
+			if (nonce + 1) % 64 == 0 {
+				FreelandRecords::on_finalize(nonce + 1);
+			}
+		}
 		assert_noop!(
-			submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(3), 2),
+			submit_subject(1, RecordKind::Passport, RecordAction::Issue, hash(257), 256),
 			Error::<Test>::RegistryFull
 		);
-		assert_eq!(NextNonce::<Test>::get(1), 2);
-		assert_eq!(TotalRecords::<Test>::get(), 2);
-		assert_eq!(RegistryEntries::<Test>::get().len(), 2);
+		assert_eq!(NextNonce::<Test>::get(1), 256);
+		assert_eq!(TotalRecords::<Test>::get(), 256);
+		assert_eq!(RegistryEntries::<Test>::get().len(), 256);
 	});
 }
 

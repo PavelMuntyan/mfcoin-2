@@ -5,6 +5,10 @@ pub struct Cli {
 
 	#[clap(flatten)]
 	pub run: sc_cli::RunCmd,
+
+	/// Participate in GRANDPA without authoring PoW blocks.
+	#[arg(long)]
+	pub disable_pow_mining: bool,
 }
 
 #[derive(Debug, clap::Subcommand)]
