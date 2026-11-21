@@ -1,6 +1,6 @@
 use crate::{
 	mock::*, empty_registry_root, records_root, registry_index, verify_registry_proof, BlockRecordIds,
-	Error, Event, FreelandBlockInfo, IssuerPermissions, LatestBlockInfo, LatestRecords, NextNonce,
+	Error, Event, FreelandBlockInfo, issuer_change_id, IssuerPermissions, LatestBlockInfo, LatestRecords, NextNonce,
 	RecordAction, RecordKind, RegistryEntry, RegistryLeaves, RegistryRoot, TotalRecords,
 	FREELAND_INFO_ENGINE_ID, REGISTRY_DEPTH,
 };
@@ -13,8 +13,16 @@ fn hash(value: u64) -> H256 {
 	H256::from_low_u64_be(value)
 }
 
+fn change_allowed(kind: RecordKind, issuer: u64, allowed: bool) {
+	System::set_block_number(1);
+	let proposal_id = issuer_change_id(kind, issuer, allowed, 3);
+	assert_ok!(FreelandRecords::set_issuer(RuntimeOrigin::signed(1), kind, issuer, allowed));
+	System::set_block_number(3);
+	assert_ok!(FreelandRecords::execute_issuer_change(RuntimeOrigin::signed(99), proposal_id));
+}
+
 fn allow(kind: RecordKind, issuer: u64) {
-	assert_ok!(FreelandRecords::set_issuer(RuntimeOrigin::root(), kind, issuer, true));
+	change_allowed(kind, issuer, true);
 }
 
 fn submit_subject(
@@ -77,10 +85,37 @@ fn unauthorized_issuer_and_signed_role_management_are_rejected() {
 			Error::<Test>::UnauthorizedIssuer
 		);
 		assert_noop!(
-			FreelandRecords::set_issuer(RuntimeOrigin::signed(1), RecordKind::Passport, 1, true),
-			DispatchError::BadOrigin
+			FreelandRecords::set_issuer(RuntimeOrigin::signed(2), RecordKind::Passport, 1, true),
+			Error::<Test>::UnauthorizedGovernance
 		);
 		assert_eq!(TotalRecords::<Test>::get(), 0);
+	});
+}
+
+#[test]
+fn issuer_change_requires_governance_and_timelock() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		assert_noop!(
+			FreelandRecords::set_issuer(RuntimeOrigin::signed(2), RecordKind::Passport, 7, true),
+			Error::<Test>::UnauthorizedGovernance
+		);
+		assert_ok!(FreelandRecords::set_issuer(RuntimeOrigin::signed(1), RecordKind::Passport, 7, true));
+		let (_, change) = crate::PendingIssuerChanges::<Test>::iter().next().unwrap();
+		let proposal_id = issuer_change_id(change.kind, change.issuer, change.allowed, change.execute_at);
+		assert!(crate::PendingIssuerChanges::<Test>::contains_key(proposal_id));
+		assert_noop!(
+			FreelandRecords::execute_issuer_change(RuntimeOrigin::signed(99), proposal_id),
+			Error::<Test>::ProposalNotReady
+		);
+		assert_noop!(
+			FreelandRecords::set_issuer(RuntimeOrigin::signed(1), RecordKind::Passport, 7, true),
+			Error::<Test>::ProposalAlreadyExists
+		);
+		System::set_block_number(3);
+		assert_ok!(FreelandRecords::execute_issuer_change(RuntimeOrigin::signed(99), proposal_id));
+		assert!(crate::PendingIssuerChanges::<Test>::get(proposal_id).is_none());
+		assert!(IssuerPermissions::<Test>::get(RecordKind::Passport, 7));
 	});
 }
 
@@ -107,12 +142,7 @@ fn invalid_action_and_revoked_issuer_are_rejected() {
 			submit(1, RecordKind::Passport, RecordAction::Open, 0),
 			Error::<Test>::InvalidAction
 		);
-		assert_ok!(FreelandRecords::set_issuer(
-			RuntimeOrigin::root(),
-			RecordKind::Passport,
-			1,
-			false
-		));
+		change_allowed(RecordKind::Passport, 1, false);
 		assert!(!IssuerPermissions::<Test>::get(RecordKind::Passport, 1));
 		assert_noop!(
 			submit(1, RecordKind::Passport, RecordAction::Issue, 0),

@@ -159,6 +159,23 @@ impl<'de> serde::Deserialize<'de> for FreelandRecord<sp_core::crypto::AccountId3
 }
 
 #[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct IssuerChange<AccountId> {
+	pub kind: RecordKind,
+	pub issuer: AccountId,
+	pub allowed: bool,
+	pub execute_at: u32,
+}
+
+pub fn issuer_change_id<AccountId: Encode>(
+	kind: RecordKind,
+	issuer: AccountId,
+	allowed: bool,
+	execute_at: u32,
+) -> H256 {
+	hash_with_domain(b"MFC/issuer-change/v1", &(kind, issuer, allowed, execute_at).encode())
+}
+
+#[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct FreelandBlockInfo {
 	pub version: u16,
 	pub previous_info_root: H256,
@@ -214,7 +231,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, DefaultNoBound};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::generic::DigestItem;
+	use sp_runtime::{generic::DigestItem, traits::{SaturatedConversion, Saturating}};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -224,6 +241,7 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type MaxRecordsPerBlock: Get<u32>;
+		type GovernanceDelay: Get<u32>;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -232,6 +250,8 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		#[serde(default)]
 		pub records: Vec<FreelandRecord<sp_core::crypto::AccountId32>>,
+		#[serde(default)]
+		pub governance_account: Option<sp_core::crypto::AccountId32>,
 		#[serde(skip)]
 		pub _phantom: core::marker::PhantomData<T>,
 	}
@@ -264,6 +284,12 @@ pub mod pallet {
 				})
 				.expect("genesis registry key must be unique");
 			}
+			if let Some(account) = &self.governance_account {
+				GovernanceAccount::<T>::set(Some(
+					T::AccountId::decode(&mut &account.encode()[..])
+						.expect("genesis governance account uses the runtime account encoding"),
+				));
+			}
 			assert_eq!(RegistryLeaves::<T>::iter().count(), self.records.len(), "duplicate genesis registry key");
 			TotalRecords::<T>::set(self.records.len() as u64);
 		}
@@ -279,6 +305,13 @@ pub mod pallet {
 		bool,
 		ValueQuery,
 	>;
+
+	#[pallet::storage]
+	pub type GovernanceAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
+	#[pallet::storage]
+	pub type PendingIssuerChanges<T: Config> =
+		StorageMap<_, Blake2_128Concat, H256, IssuerChange<T::AccountId>, OptionQuery>;
 
 	#[pallet::storage]
 	pub type NextNonce<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
@@ -330,6 +363,13 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		IssuerChangeScheduled {
+			proposal_id: H256,
+			kind: RecordKind,
+			issuer: T::AccountId,
+			allowed: bool,
+			execute_at: u32,
+		},
 		IssuerUpdated { kind: RecordKind, issuer: T::AccountId, allowed: bool },
 		RecordSubmitted {
 			record_id: H256,
@@ -352,6 +392,10 @@ pub mod pallet {
 		RecordCountOverflow,
 		TooManyRecords,
 		RegistryIndexCollision,
+		UnauthorizedGovernance,
+		ProposalAlreadyExists,
+		ProposalNotFound,
+		ProposalNotReady,
 	}
 
 	#[pallet::hooks]
@@ -421,9 +465,37 @@ pub mod pallet {
 			issuer: T::AccountId,
 			allowed: bool,
 		) -> DispatchResult {
-			ensure_root(origin)?;
-			IssuerPermissions::<T>::set(kind, issuer.clone(), allowed);
-			Self::deposit_event(Event::IssuerUpdated { kind, issuer, allowed });
+			let who = ensure_signed(origin)?;
+			ensure!(GovernanceAccount::<T>::get() == Some(who), Error::<T>::UnauthorizedGovernance);
+			let execute_at = frame_system::Pallet::<T>::block_number()
+				.saturating_add(T::GovernanceDelay::get().saturated_into())
+				.saturated_into::<u32>();
+			let proposal_id = issuer_change_id(kind, issuer.clone(), allowed, execute_at);
+			ensure!(!PendingIssuerChanges::<T>::contains_key(proposal_id), Error::<T>::ProposalAlreadyExists);
+			PendingIssuerChanges::<T>::set(
+				proposal_id,
+				Some(IssuerChange { kind, issuer: issuer.clone(), allowed, execute_at }),
+			);
+			Self::deposit_event(Event::IssuerChangeScheduled { proposal_id, kind, issuer, allowed, execute_at });
+			Ok(())
+		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::set_issuer())]
+		pub fn execute_issuer_change(origin: OriginFor<T>, proposal_id: H256) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
+			let change = PendingIssuerChanges::<T>::get(proposal_id).ok_or(Error::<T>::ProposalNotFound)?;
+			ensure!(
+				frame_system::Pallet::<T>::block_number().saturated_into::<u32>() >= change.execute_at,
+				Error::<T>::ProposalNotReady
+			);
+			PendingIssuerChanges::<T>::remove(proposal_id);
+			IssuerPermissions::<T>::set(change.kind, change.issuer.clone(), change.allowed);
+			Self::deposit_event(Event::IssuerUpdated {
+				kind: change.kind,
+				issuer: change.issuer,
+				allowed: change.allowed,
+			});
 			Ok(())
 		}
 
@@ -499,5 +571,6 @@ sp_api::decl_runtime_apis! {
 		fn block_records() -> Vec<(u32, FreelandRecord<AccountId>)>;
 		fn block_records_page(offset: u32, limit: u32) -> Vec<(u32, FreelandRecord<AccountId>)>;
 		fn total_records() -> u64;
+		fn pending_issuer_changes() -> Vec<(H256, IssuerChange<AccountId>)>;
 	}
 }

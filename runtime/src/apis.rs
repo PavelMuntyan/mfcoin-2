@@ -30,7 +30,7 @@ use frame_support::{
 	traits::UnixTime,
 	weights::Weight,
 };
-use pallet_freeland_records::{FreelandBlockInfo, FreelandRecord, RecordKind, RegistryProof};
+use pallet_freeland_records::{FreelandBlockInfo, FreelandRecord, IssuerChange, RecordKind, RegistryProof};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -364,6 +364,10 @@ impl_runtime_apis! {
 
 		fn total_records() -> u64 {
 			pallet_freeland_records::TotalRecords::<Runtime>::get()
+		}
+
+		fn pending_issuer_changes() -> Vec<(sp_core::H256, IssuerChange<AccountId>)> {
+			pallet_freeland_records::PendingIssuerChanges::<Runtime>::iter().collect()
 		}
 	}
 

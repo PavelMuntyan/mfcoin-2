@@ -30,6 +30,11 @@ fn testnet_genesis(
 	endowed_accounts: Vec<AccountId>,
 	root: AccountId,
 ) -> Value {
+	let governance_account = pallet_multisig::Pallet::<crate::Runtime>::multi_account_id(&[
+		Sr25519Keyring::Bob.to_account_id(),
+		Sr25519Keyring::Charlie.to_account_id(),
+		root.clone(),
+	], 2);
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
@@ -43,6 +48,11 @@ fn testnet_genesis(
 		},
 		grandpa: pallet_grandpa::GenesisConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect::<Vec<_>>(),
+		},
+		freeland_records: pallet_freeland_records::GenesisConfig {
+			records: vec![],
+			governance_account: Some(governance_account),
+			_phantom: Default::default(),
 		},
 		sudo: SudoConfig { key: Some(root) },
 	})
@@ -60,6 +70,8 @@ pub fn development_config_genesis() -> Value {
 			Sr25519Keyring::Bob.to_account_id(),
 			Sr25519Keyring::AliceStash.to_account_id(),
 			Sr25519Keyring::BobStash.to_account_id(),
+			Sr25519Keyring::Charlie.to_account_id(),
+			Sr25519Keyring::Dave.to_account_id(),
 		],
 		sp_keyring::Sr25519Keyring::Alice.to_account_id(),
 	)

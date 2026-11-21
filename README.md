@@ -4,15 +4,15 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 8: 33K batch genesis, paginated indexing and a live reorg with orphaned records.
+Contour 9: on-chain multisig governance and timelocked issuer changes.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
 The project is being built incrementally: base node and GRANDPA finality first, then an isolated PoW authoring contour, Freeland records, rewards and public testnet. AuxPoW, EVM and ZK features are intentionally deferred until the base network is proven.
 
-Verified: 24 workspace tests, 17 active pallet tests with runtime benchmarks and all indexer tests pass. A 33,000-record synthetic genesis was built incrementally, read through 33 bounded pages and indexed into PostgreSQL. The last record was finalized and its 256-sibling proof verified. A live two-fork reorg marked Bob's record orphaned after Alice's chain won. Four-validator finality loss/recovery also passed again.
+Verified: 25 workspace tests, 19 active pallet tests with runtime benchmarks and all indexer tests pass. A 2-of-3 multisig operation was approved by Alice and Charlie, its issuer change executed after the timelock, and a signed passport record was finalized with a valid proof. The same governance flow passed a live reorg and marked the losing fork's record orphaned.
 
-The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration. Runtime `spec_version` is `107`.
+The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration. Runtime `spec_version` is `108`.
 
 ## Freeland data contour
 
@@ -22,7 +22,7 @@ Passport and citizen state uses a domain-separated sparse Merkle tree with 256 l
 
 `freeland_registryProof` returns inclusion or absence proofs. Verification detects changed entries, siblings and proof lengths. There is no 256-entry registry cap. The 33K test is synthetic and contains no real user data. Production migration should use batch/genesis construction rather than 33,000 individual transactions.
 
-The info root is deposited as an `MFCF` digest during `on_finalize`. `governance_root`, `epoch` and `validator_set_hash` remain explicitly reserved and zero. Issuer management currently uses the development root origin. Production multisig, timelocks, voting, encryption and migration remain separate later contours.
+The info root is deposited as an `MFCF` digest during `on_finalize`. `governance_root`, `epoch` and `validator_set_hash` remain explicitly reserved and zero. Issuer changes require the on-chain 2-of-3 multisig account and a 20-block timelock: `set_issuer` creates a pending change, and `execute_issuer_change` applies it only after `execute_at`. Sudo and development accounts remain development-only and are not used by the governance example.
 
 ## Isolation
 
@@ -100,10 +100,11 @@ FREELAND_KIND=passport FREELAND_SUBJECT=0x... FREELAND_AT=0x... \
 - `freeland_blockRecords(at?)`
 - `freeland_blockRecordsPage(offset, limit, at?)`
 - `freeland_totalRecords(at?)`
+- `freeland_pendingIssuerChanges(at?)`
 
 `kind` is `passport`, `citizen`, `election`, `document` or `revocation`. The optional `at` parameter is a block hash; without it, methods query the best block. Responses contain commitments, hashes and Merkle proof data only.
 
-On a fresh local devnet, the development-only example assigns a passport issuer, submits a signed test record and verifies its finalized registry proof:
+On a fresh local devnet, the development-only example approves an issuer change through the 2-of-3 multisig, waits for the timelock, executes it, then submits and verifies a signed test record:
 
 ```sh
 cargo +1.88.0 run --release -p solochain-template-node --example freeland_devnet

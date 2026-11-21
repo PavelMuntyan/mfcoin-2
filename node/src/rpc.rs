@@ -14,8 +14,8 @@ use jsonrpsee::{
 	RpcModule,
 };
 use pallet_freeland_records::{
-	FreelandApi as FreelandRuntimeApi, FreelandBlockInfo, FreelandRecord, RecordAction, RecordKind,
-	RegistryProof,
+	FreelandApi as FreelandRuntimeApi, FreelandBlockInfo, FreelandRecord, IssuerChange, RecordAction,
+	RecordKind, RegistryProof,
 };
 use sc_transaction_pool_api::TransactionPool;
 use serde_json::{json, Value};
@@ -80,6 +80,10 @@ pub trait Freeland {
 	/// Return the total number of Freeland records in the current state.
 	#[method(name = "totalRecords")]
 	fn total_records(&self, at: Option<H256>) -> RpcResult<u64>;
+
+	/// Return issuer changes waiting for their timelock to expire.
+	#[method(name = "pendingIssuerChanges")]
+	fn pending_issuer_changes(&self, at: Option<H256>) -> RpcResult<Vec<Value>>;
 }
 
 impl<C> FreelandServer for FreelandRpc<C>
@@ -164,6 +168,28 @@ where
 	fn total_records(&self, at: Option<H256>) -> RpcResult<u64> {
 		let at = at.unwrap_or_else(|| self.client.info().best_hash);
 		self.client.runtime_api().total_records(at).map_err(runtime_error)
+	}
+
+	fn pending_issuer_changes(&self, at: Option<H256>) -> RpcResult<Vec<Value>> {
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+		let changes = self
+			.client
+			.runtime_api()
+			.pending_issuer_changes(at)
+			.map_err(runtime_error)?;
+		Ok(changes
+			.into_iter()
+			.map(|(proposal_id, change)| {
+				let IssuerChange { kind, issuer, allowed, execute_at } = change;
+				json!({
+					"proposalId": proposal_id,
+					"kind": kind_name(kind),
+					"issuer": issuer,
+					"allowed": allowed,
+					"executeAt": execute_at,
+				})
+			})
+			.collect())
 	}
 }
 

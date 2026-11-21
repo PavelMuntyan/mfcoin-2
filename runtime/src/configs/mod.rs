@@ -42,7 +42,7 @@ use sp_version::RuntimeVersion;
 use super::{
 	AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce, PalletInfo, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask,
-	System, EXISTENTIAL_DEPOSIT, SLOT_DURATION, VERSION,
+	System, EXISTENTIAL_DEPOSIT, MICRO_UNIT, SLOT_DURATION, VERSION,
 };
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -173,5 +173,17 @@ impl pallet_template::Config for Runtime {
 impl pallet_freeland_records::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxRecordsPerBlock = ConstU32<64>;
+	type GovernanceDelay = ConstU32<20>;
 	type WeightInfo = pallet_freeland_records::weights::SubstrateWeight<Runtime>;
+}
+
+impl pallet_multisig::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type BlockNumberProvider = System;
+	type Currency = Balances;
+	type DepositBase = ConstU128<{ 500 * MICRO_UNIT }>;
+	type DepositFactor = ConstU128<{ 100 * MICRO_UNIT }>;
+	type MaxSignatories = ConstU32<16>;
+	type WeightInfo = ();
 }

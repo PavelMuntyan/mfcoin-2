@@ -18,10 +18,13 @@ mod benchmarks {
 	#[benchmark]
 	fn set_issuer() {
 		let issuer: T::AccountId = whitelisted_caller();
+		GovernanceAccount::<T>::set(Some(issuer.clone()));
+		frame_system::Pallet::<T>::set_block_number(1u32.into());
 		#[extrinsic_call]
-		set_issuer(RawOrigin::Root, RecordKind::Passport, issuer.clone(), true);
+		set_issuer(RawOrigin::Signed(issuer.clone()), RecordKind::Passport, issuer.clone(), true);
 
-		assert!(IssuerPermissions::<T>::get(RecordKind::Passport, issuer));
+		let proposal_id = issuer_change_id(RecordKind::Passport, issuer, true, 3);
+		assert!(PendingIssuerChanges::<T>::contains_key(proposal_id));
 	}
 
 	#[benchmark]

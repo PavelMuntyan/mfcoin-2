@@ -36,9 +36,13 @@ impl frame_system::Config for Test {
 impl pallet_freeland_records::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxRecordsPerBlock = ConstU32<64>;
+	type GovernanceDelay = ConstU32<2>;
 	type WeightInfo = pallet_freeland_records::weights::SubstrateWeight<Test>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
+	let mut externalities: sp_io::TestExternalities =
+		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into();
+	externalities.execute_with(|| crate::GovernanceAccount::<Test>::set(Some(1)));
+	externalities
 }

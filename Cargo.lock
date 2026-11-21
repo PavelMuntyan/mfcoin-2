@@ -6386,6 +6386,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-multisig"
+version = "45.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb5c61c65c78314405af4dd939e780f8ed107a2a3a6b660dc44efa5e1076f2cb"
+dependencies = [
+ "log",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-session"
 version = "45.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10228,6 +10240,7 @@ dependencies = [
  "pallet-balances",
  "pallet-freeland-records",
  "pallet-grandpa",
+ "pallet-multisig",
  "pallet-sudo",
  "pallet-template",
  "pallet-timestamp",
