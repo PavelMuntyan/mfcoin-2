@@ -64,6 +64,12 @@ jobs:
         run: cargo +1.88.0 build --package solochain-template-node --release
         timeout-minutes: 90
 
+      - name: Check isolated production-candidate network
+        run: |
+          cargo +1.88.0 build --package solochain-template-node --release --example freeland_devnet
+          node scripts/check-production.mjs
+        timeout-minutes: 8
+
       - name: Make sure the node is producing blocks
         run: |
           ./target/release/solochain-template-node --dev 2>&1 | tee out.txt &

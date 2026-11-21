@@ -15,26 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{AccountId, BalancesConfig, RuntimeGenesisConfig, SudoConfig};
+use crate::{AccountId, BalancesConfig, RuntimeGenesisConfig};
 use alloc::{vec, vec::Vec};
 use frame_support::build_struct_json_patch;
 use serde_json::Value;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_genesis_builder::{self, PresetId};
 use sp_keyring::Sr25519Keyring;
 
-// Returns the genesis config presets populated with given parameters.
-fn testnet_genesis(
-	initial_authorities: Vec<(AuraId, GrandpaId)>,
-	endowed_accounts: Vec<AccountId>,
-	root: AccountId,
-) -> Value {
-	let governance_account = pallet_multisig::Pallet::<crate::Runtime>::multi_account_id(&[
-		Sr25519Keyring::Bob.to_account_id(),
-		Sr25519Keyring::Charlie.to_account_id(),
-		root.clone(),
-	], 2);
+fn testnet_genesis(initial_authorities: Vec<GrandpaId>, endowed_accounts: Vec<AccountId>) -> Value {
+	let governance_account = pallet_multisig::Pallet::<crate::Runtime>::multi_account_id(
+		&[
+			Sr25519Keyring::Bob.to_account_id(),
+			Sr25519Keyring::Charlie.to_account_id(),
+			Sr25519Keyring::Alice.to_account_id(),
+		],
+		2,
+	);
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
@@ -43,28 +40,24 @@ fn testnet_genesis(
 				.map(|k| (k, 1u128 << 60))
 				.collect::<Vec<_>>(),
 		},
-		aura: pallet_aura::GenesisConfig {
-			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
-		},
 		grandpa: pallet_grandpa::GenesisConfig {
-			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect::<Vec<_>>(),
+			authorities: initial_authorities
+				.iter()
+				.map(|x| (x.clone(), 1))
+				.collect::<Vec<_>>(),
 		},
 		freeland_records: pallet_freeland_records::GenesisConfig {
 			records: vec![],
 			governance_account: Some(governance_account),
 			_phantom: Default::default(),
 		},
-		sudo: SudoConfig { key: Some(root) },
 	})
 }
 
 /// Return the development genesis config.
 pub fn development_config_genesis() -> Value {
 	testnet_genesis(
-		vec![(
-			sp_keyring::Sr25519Keyring::Alice.public().into(),
-			sp_keyring::Ed25519Keyring::Alice.public().into(),
-		)],
+		vec![sp_keyring::Ed25519Keyring::Alice.public().into()],
 		vec![
 			Sr25519Keyring::Alice.to_account_id(),
 			Sr25519Keyring::Bob.to_account_id(),
@@ -73,7 +66,6 @@ pub fn development_config_genesis() -> Value {
 			Sr25519Keyring::Charlie.to_account_id(),
 			Sr25519Keyring::Dave.to_account_id(),
 		],
-		sp_keyring::Sr25519Keyring::Alice.to_account_id(),
 	)
 }
 
@@ -81,28 +73,15 @@ pub fn development_config_genesis() -> Value {
 pub fn local_config_genesis() -> Value {
 	testnet_genesis(
 		vec![
-			(
-				sp_keyring::Sr25519Keyring::Alice.public().into(),
-				sp_keyring::Ed25519Keyring::Alice.public().into(),
-			),
-			(
-				sp_keyring::Sr25519Keyring::Bob.public().into(),
-				sp_keyring::Ed25519Keyring::Bob.public().into(),
-			),
-			(
-				sp_keyring::Sr25519Keyring::Charlie.public().into(),
-				sp_keyring::Ed25519Keyring::Charlie.public().into(),
-			),
-			(
-				sp_keyring::Sr25519Keyring::Dave.public().into(),
-				sp_keyring::Ed25519Keyring::Dave.public().into(),
-			),
+			sp_keyring::Ed25519Keyring::Alice.public().into(),
+			sp_keyring::Ed25519Keyring::Bob.public().into(),
+			sp_keyring::Ed25519Keyring::Charlie.public().into(),
+			sp_keyring::Ed25519Keyring::Dave.public().into(),
 		],
 		Sr25519Keyring::iter()
 			.filter(|v| v != &Sr25519Keyring::One && v != &Sr25519Keyring::Two)
 			.map(|v| v.to_account_id())
 			.collect::<Vec<_>>(),
-		Sr25519Keyring::Alice.to_account_id(),
 	)
 }
 

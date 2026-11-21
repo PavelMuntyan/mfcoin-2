@@ -31,6 +31,4 @@ frame_benchmarking::define_benchmarks!(
 	[pallet_freeland_records, FreelandRecords]
 	[pallet_multisig, Multisig]
 	[pallet_timestamp, Timestamp]
-	[pallet_sudo, Sudo]
-	[pallet_template, Template]
 );

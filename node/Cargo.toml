@@ -31,6 +31,8 @@ sp-crypto-hashing.workspace = true
 jsonrpsee = { features = ["server"], workspace = true }
 pallet-freeland-records.default-features = true
 pallet-freeland-records.workspace = true
+pallet-multisig.default-features = true
+pallet-multisig.workspace = true
 pallet-transaction-payment.default-features = true
 pallet-transaction-payment.workspace = true
 pallet-transaction-payment-rpc.default-features = true
@@ -62,6 +64,7 @@ sc-transaction-pool.default-features = true
 sc-transaction-pool.workspace = true
 sc-transaction-pool-api.default-features = true
 sc-transaction-pool-api.workspace = true
+serde = { features = ["derive"], workspace = true }
 serde_json = { features = ["std"], workspace = true }
 solochain-template-runtime.workspace = true
 sp-api.default-features = true
@@ -70,8 +73,8 @@ sp-block-builder.default-features = true
 sp-block-builder.workspace = true
 sp-blockchain.default-features = true
 sp-blockchain.workspace = true
-sp-consensus-aura.default-features = true
-sp-consensus-aura.workspace = true
+sp-consensus-grandpa.default-features = true
+sp-consensus-grandpa.workspace = true
 sp-consensus-pow.default-features = true
 sp-consensus-pow.workspace = true
 sp-core.default-features = true

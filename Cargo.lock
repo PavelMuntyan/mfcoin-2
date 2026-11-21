@@ -6207,23 +6207,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-aura"
-version = "44.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb444f29c9df8a1ea89b4c8b6a026a119b13e5f55fff8c6901103ec8de2a6ad8"
-dependencies = [
- "frame-support",
- "frame-system",
- "log",
- "pallet-timestamp",
- "parity-scale-codec",
- "scale-info",
- "sp-application-crypto",
- "sp-consensus-aura",
- "sp-runtime",
-]
-
-[[package]]
 name = "pallet-authority-discovery"
 version = "45.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6441,22 +6424,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
-]
-
-[[package]]
-name = "pallet-sudo"
-version = "45.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad134ab6aa0cd61a3af61ca9b8e82ce40a2020608f0a4b5b816043663fe576d9"
-dependencies = [
- "docify",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-io",
- "sp-runtime",
 ]
 
 [[package]]
@@ -10186,6 +10153,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "pallet-freeland-records",
+ "pallet-multisig",
  "pallet-staking",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
@@ -10202,12 +10170,13 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
+ "serde",
  "serde_json",
  "solochain-template-runtime",
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
- "sp-consensus-aura",
+ "sp-consensus-grandpa",
  "sp-consensus-pow",
  "sp-core",
  "sp-crypto-hashing",
@@ -10236,13 +10205,10 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
- "pallet-aura",
  "pallet-balances",
  "pallet-freeland-records",
  "pallet-grandpa",
  "pallet-multisig",
- "pallet-sudo",
- "pallet-template",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -10251,7 +10217,6 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-block-builder",
- "sp-consensus-aura",
  "sp-consensus-grandpa",
  "sp-consensus-pow",
  "sp-core",

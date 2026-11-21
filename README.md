@@ -4,15 +4,51 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 9: on-chain multisig governance and timelocked issuer changes.
+Contour 10: a production-candidate chain configuration. This is not a launched mainnet or a claim of production readiness.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
 The project is being built incrementally: base node and GRANDPA finality first, then an isolated PoW authoring contour, Freeland records, rewards and public testnet. AuxPoW, EVM and ZK features are intentionally deferred until the base network is proven.
 
-Verified: 25 workspace tests, 19 active pallet tests with runtime benchmarks and all indexer tests pass. A 2-of-3 multisig operation was approved by Alice and Charlie, its issuer change executed after the timelock, and a signed passport record was finalized with a valid proof. The same governance flow passed a live reorg and marked the losing fork's record orphaned.
+Runtime `spec_version` is `109`. Sudo, the template pallet and Aura have been removed from the runtime; GRANDPA is the only session key. Issuer changes have no root or development-account bypass and still require on-chain multisig approval followed by the timelock. Development accounts remain in the dev/local presets and the explicitly non-production example configuration.
 
-The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration. Runtime `spec_version` is `108`.
+The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration.
+
+Verified: 27 workspace tests, 18 active pallet tests with runtime benchmarks, both clippy configurations and all 3 indexer tests pass. The isolated production-candidate example finalized block 40, executed its multisig/timelocked issuer change and finalized a synthetic passport record with a verified 256-sibling registry proof. The multi-node regression separately confirmed finality loss/recovery, canonical reorg handling and `orphaned` indexer history.
+
+## Production-candidate configuration
+
+`--chain production` fails closed unless `MFCOIN_PRODUCTION_CONFIG` points to an explicit operator configuration. The JSON must contain:
+
+- unique GRANDPA **Ed25519** validator public keys (not the Sr25519 transaction account IDs);
+- between 2 and 16 governance signatories, unique and sorted by `AccountId` (the current threshold is 2-of-N);
+- unique endowed accounts with positive balances for transaction fees and multisig deposits.
+
+Unknown JSON fields are rejected. No private keys or seeds belong in this file.
+
+`production.example.json` uses only the public Alice/Bob/Charlie development accounts so the complete flow can be tested locally. **These keys are public and must never secure a real network.** A real launch still requires independently controlled validator and governance keys, operational and security review, reproducible release artifacts, and a reviewed migration plan for real registry data.
+
+To inspect the example genesis without starting a node:
+
+```sh
+MFCOIN_PRODUCTION_CONFIG=production.example.json \
+  ./target/release/solochain-template-node export-chain-spec --chain production
+```
+
+A live chain does not auto-generate a network key. Provision it separately for each node and protect the resulting `chains/mfcoin2/network/secret_ed25519` file:
+
+```sh
+MFCOIN_PRODUCTION_CONFIG=production.example.json \
+  ./target/release/solochain-template-node key generate-node-key \
+  --chain production --base-path .devnet/production-node
+```
+
+The following check exports that genesis, starts an isolated two-validator local network, exercises multisig/timelock governance and verifies a finalized registry proof. It uses public development keys only and stops all processes on exit:
+
+```sh
+cargo +1.88.0 build --release --example freeland_devnet
+node scripts/check-production.mjs
+```
 
 ## Freeland data contour
 
@@ -22,7 +58,7 @@ Passport and citizen state uses a domain-separated sparse Merkle tree with 256 l
 
 `freeland_registryProof` returns inclusion or absence proofs. Verification detects changed entries, siblings and proof lengths. There is no 256-entry registry cap. The 33K test is synthetic and contains no real user data. Production migration should use batch/genesis construction rather than 33,000 individual transactions.
 
-The info root is deposited as an `MFCF` digest during `on_finalize`. `governance_root`, `epoch` and `validator_set_hash` remain explicitly reserved and zero. Issuer changes require the on-chain 2-of-3 multisig account and a 20-block timelock: `set_issuer` creates a pending change, and `execute_issuer_change` applies it only after `execute_at`. Sudo and development accounts remain development-only and are not used by the governance example.
+The info root is deposited as an `MFCF` digest during `on_finalize`. `governance_root`, `epoch` and `validator_set_hash` remain explicitly reserved and zero. Issuer changes require the on-chain 2-of-N multisig account and a 20-block timelock: `set_issuer` creates a pending change, and `execute_issuer_change` applies it only after `execute_at`.
 
 ## Isolation
 

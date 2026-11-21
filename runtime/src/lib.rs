@@ -52,7 +52,6 @@ pub mod opaque {
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
-		pub aura: Aura,
 		pub grandpa: Grandpa,
 	}
 }
@@ -69,7 +68,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 108,
+	spec_version: 109,
 	impl_version: 1,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -79,8 +78,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 mod block_times {
 	/// This determines the average expected block time that we are targeting. Blocks will be
 	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
-	/// `pallet_timestamp` which is in turn picked up by `pallet_aura` to implement `fn
-	/// slot_duration()`.
+	/// `pallet_timestamp`, which enforces the minimum interval between blocks.
 	///
 	/// Change this to adjust the block time.
 	pub const MILLI_SECS_PER_BLOCK: u64 = 6000;
@@ -109,7 +107,10 @@ pub const EXISTENTIAL_DEPOSIT: Balance = MILLI_UNIT;
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
+	NativeVersion {
+		runtime_version: VERSION,
+		can_author_with: Default::default(),
+	}
 }
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
@@ -201,9 +202,6 @@ mod runtime {
 	#[runtime::pallet_index(1)]
 	pub type Timestamp = pallet_timestamp;
 
-	#[runtime::pallet_index(2)]
-	pub type Aura = pallet_aura;
-
 	#[runtime::pallet_index(3)]
 	pub type Grandpa = pallet_grandpa;
 
@@ -212,13 +210,6 @@ mod runtime {
 
 	#[runtime::pallet_index(5)]
 	pub type TransactionPayment = pallet_transaction_payment;
-
-	#[runtime::pallet_index(6)]
-	pub type Sudo = pallet_sudo;
-
-	// Include the custom logic from the pallet-template in the runtime.
-	#[runtime::pallet_index(7)]
-	pub type Template = pallet_template;
 
 	#[runtime::pallet_index(8)]
 	pub type FreelandRecords = pallet_freeland_records;
