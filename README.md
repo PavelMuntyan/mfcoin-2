@@ -10,6 +10,8 @@ The current workspace is based on the standalone Polkadot SDK Solochain Template
 
 The project is being built incrementally: base node and GRANDPA finality first, then an isolated PoW authoring contour, rewards, Freeland records and public testnet. AuxPoW, EVM and ZK features are intentionally deferred until the base network is proven.
 
+Verified: the release build completed on Rust `1.88.0`, and the devnet advanced best block `0x3 -> 0x4` with finalized block `0x2` via `scripts/check-devnet.mjs`.
+
 ## Isolation
 
 - Development state belongs to `.devnet/` and is not committed.
