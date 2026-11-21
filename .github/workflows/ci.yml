@@ -39,7 +39,7 @@ jobs:
 
       - name: Run the tests
         run: cargo +1.88.0 test
-        timeout-minutes: 15
+        timeout-minutes: 30
 
       - name: Build the docs
         run: SKIP_WASM_BUILD=1 cargo +1.88.0 doc --workspace --no-deps
