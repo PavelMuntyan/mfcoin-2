@@ -6288,6 +6288,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-freeland-records"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-grandpa"
 version = "45.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10178,6 +10191,7 @@ dependencies = [
  "frame-try-runtime",
  "pallet-aura",
  "pallet-balances",
+ "pallet-freeland-records",
  "pallet-grandpa",
  "pallet-sudo",
  "pallet-template",

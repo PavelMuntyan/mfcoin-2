@@ -169,3 +169,8 @@ impl pallet_template::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_template::weights::SubstrateWeight<Runtime>;
 }
+
+impl pallet_freeland_records::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MaxRecordsPerBlock = ConstU32<64>;
+}

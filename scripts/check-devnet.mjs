@@ -21,15 +21,23 @@ await new Promise(resolve => setTimeout(resolve, 8000));
 const second = await rpc("chain_getHeader");
 const finalizedHash = await rpc("chain_getFinalizedHead");
 const finalized = await rpc("chain_getHeader", [finalizedHash]);
+const bestBlock = await rpc("chain_getBlock");
+const logs = bestBlock.block.header.digest.logs;
+const powSeal = logs.find(log => log.startsWith("0x05706f775f"));
+const freelandInfo = logs.find(log => log.startsWith("0x00904d464346") && log.length === 78);
 
 if (blockNumber(second) <= blockNumber(first)) {
   throw new Error(`Best block did not advance: ${first.number} -> ${second.number}`);
 }
+if (!powSeal) throw new Error("PoW seal not found in the best block");
+if (!freelandInfo) throw new Error("FreelandBlockInfo root not found in the best block");
 
 console.log(JSON.stringify({
   firstBest: first.number,
   currentBest: second.number,
   finalized: finalized.number,
   finalizedHash,
-  advancing: true
+  advancing: true,
+  powSeal: true,
+  freelandInfoRoot: `0x${freelandInfo.slice(-64)}`
 }, null, 2));
