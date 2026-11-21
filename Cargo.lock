@@ -10144,6 +10144,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "jsonrpsee",
+ "pallet-staking",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",
