@@ -4,13 +4,13 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 1: isolated devnet foundation.
+Contour 2: isolated PoW authoring with GRANDPA finality.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
 The project is being built incrementally: base node and GRANDPA finality first, then an isolated PoW authoring contour, rewards, Freeland records and public testnet. AuxPoW, EVM and ZK features are intentionally deferred until the base network is proven.
 
-Verified: the release build completed on Rust `1.88.0`, and the devnet advanced best block `0x3 -> 0x4` with finalized block `0x2` via `scripts/check-devnet.mjs`.
+Verified: the release build completed on Rust `1.88.0`, and the PoW devnet advanced best block `0x11 -> 0x14` with finalized block `0x11`. Block digests contain a `pow_` seal. Unit tests in `node/src/pow.rs` pass.
 
 ## Isolation
 

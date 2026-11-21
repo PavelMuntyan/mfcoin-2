@@ -1,14 +1,13 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+use crate::pow::Sha256Algorithm;
 use futures::FutureExt;
 use sc_client_api::{Backend, BlockBackend};
-use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncConfig};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use solochain_template_runtime::{self, apis::RuntimeApi, opaque::Block};
-use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::{sync::Arc, time::Duration};
 
 pub(crate) type FullClient = sc_service::TFullClient<
@@ -83,36 +82,24 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
 
-	let cidp_client = client.clone();
-	let import_queue =
-		sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(ImportQueueParams {
-			block_import: grandpa_block_import.clone(),
-			justification_import: Some(Box::new(grandpa_block_import.clone())),
-			client: client.clone(),
-			create_inherent_data_providers: move |parent_hash, _| {
-				let cidp_client = cidp_client.clone();
-				async move {
-					let slot_duration = sc_consensus_aura::standalone::slot_duration_at(
-						&*cidp_client,
-						parent_hash,
-					)?;
-					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-					let slot =
-						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-							*timestamp,
-							slot_duration,
-						);
-
-					Ok((slot, timestamp))
-				}
-			},
-			spawner: &task_manager.spawn_essential_handle(),
-			registry: config.prometheus_registry(),
-			check_for_equivocation: Default::default(),
-			telemetry: telemetry.as_ref().map(|x| x.handle()),
-			compatibility_mode: Default::default(),
-		})?;
+	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
+		client.clone(),
+		client.clone(),
+		Sha256Algorithm::default(),
+		0,
+		select_chain.clone(),
+		move |_, ()| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			Ok((timestamp,))
+		},
+	);
+	let import_queue = sc_consensus_pow::import_queue(
+		Box::new(pow_block_import),
+		Some(Box::new(grandpa_block_import.clone())),
+		Sha256Algorithm::default(),
+		&task_manager.spawn_essential_handle(),
+		config.prometheus_registry(),
+	)?;
 
 	Ok(sc_service::PartialComponents {
 		client,
@@ -140,7 +127,7 @@ pub fn new_full<
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (block_import, grandpa_link, mut telemetry),
+		other: (_block_import, grandpa_link, mut telemetry),
 	} = new_partial(&config)?;
 
 	let mut net_config = sc_network::config::FullNetworkConfiguration::<
@@ -205,8 +192,6 @@ pub fn new_full<
 	}
 
 	let role = config.role;
-	let force_authoring = config.force_authoring;
-	let backoff_authoring_blocks: Option<()> = None;
 	let name = config.network.node_name.clone();
 	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
@@ -246,43 +231,48 @@ pub fn new_full<
 			telemetry.as_ref().map(|x| x.handle()),
 		);
 
-		let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
-
-		let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _, _>(
-			StartAuraParams {
-				slot_duration,
-				client,
-				select_chain,
-				block_import,
-				proposer_factory,
-				create_inherent_data_providers: move |_, ()| async move {
+		let (worker, worker_task) = sc_consensus_pow::start_mining_worker(
+			Box::new(sc_consensus_pow::PowBlockImport::new(
+				client.clone(),
+				client.clone(),
+				Sha256Algorithm::default(),
+				0,
+				select_chain.clone(),
+				move |_, ()| async move {
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-					let slot =
-						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-							*timestamp,
-							slot_duration,
-						);
-
-					Ok((slot, timestamp))
+					Ok((timestamp,))
 				},
-				force_authoring,
-				backoff_authoring_blocks,
-				keystore: keystore_container.keystore(),
-				sync_oracle: sync_service.clone(),
-				justification_sync_link: sync_service.clone(),
-				block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
-				max_block_proposal_slot_portion: None,
-				telemetry: telemetry.as_ref().map(|x| x.handle()),
-				compatibility_mode: Default::default(),
+			)),
+			client.clone(),
+			select_chain,
+			Sha256Algorithm::default(),
+			proposer_factory,
+			sync_service.clone(),
+			sync_service.clone(),
+			None,
+			move |_, ()| async move {
+				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+				Ok((timestamp,))
 			},
-		)?;
+			Duration::from_secs(2),
+			Duration::from_secs(1),
+		);
 
-		// the AURA authoring task is considered essential, i.e. if it
-		// fails we take down the service with it.
 		task_manager
 			.spawn_essential_handle()
-			.spawn_blocking("aura", Some("block-authoring"), aura);
+			.spawn_blocking("pow-worker", Some("block-authoring"), worker_task);
+		std::thread::spawn(move || {
+			futures::executor::block_on(async move {
+				loop {
+					if let Some(metadata) = worker.metadata() {
+						let seal = crate::pow::find_seal(&metadata.pre_hash, metadata.difficulty);
+						worker.submit(seal).await;
+					} else {
+						futures_timer::Delay::new(Duration::from_millis(100)).await;
+					}
+				}
+			});
+		});
 	}
 
 	if enable_grandpa {

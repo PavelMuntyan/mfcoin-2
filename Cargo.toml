@@ -60,6 +60,8 @@ frame-benchmarking-cli = { version = "53.0.0", default-features = false }
 frame-metadata-hash-extension = { version = "0.13.0", default-features = false }
 frame-system = { version = "45.0.0", default-features = false }
 futures = { version = "0.3.31" }
+futures-timer = { version = "3.0.3", default-features = false }
+sp-crypto-hashing = { version = "0.1.0", default-features = false }
 jsonrpsee = { version = "0.24.10" }
 pallet-transaction-payment = { version = "45.0.0", default-features = false }
 pallet-transaction-payment-rpc = { version = "48.0.0", default-features = false }
@@ -67,7 +69,7 @@ sc-basic-authorship = { version = "0.53.0", default-features = false }
 sc-cli = { version = "0.57.0", default-features = false }
 sc-client-api = { version = "44.0.0", default-features = false }
 sc-consensus = { version = "0.54.0", default-features = false }
-sc-consensus-aura = { version = "0.55.0", default-features = false }
+sc-consensus-pow = { version = "0.54.0", default-features = false }
 sc-consensus-grandpa = { version = "0.40.0", default-features = false }
 sc-executor = { version = "0.47.0", default-features = false }
 sc-network = { version = "0.55.1", default-features = false }

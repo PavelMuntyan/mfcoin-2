@@ -860,9 +860,9 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "binary-merkle-tree"
-version = "16.1.0"
+version = "16.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95c9f6900c9fd344d53fbdfb36e1343429079d73f4168c8ef48884bf15616dbd"
+checksum = "d532b8e9bc2f4d2e2aa50ec786042e62d8edbaaf547797d1377ebb1ca2e53a55"
 dependencies = [
  "hash-db",
  "log",
@@ -5164,7 +5164,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tracing",
  "yamux 0.12.1",
- "yamux 0.13.8",
+ "yamux 0.13.10",
 ]
 
 [[package]]
@@ -5309,9 +5309,9 @@ checksum = "6373607a59f0be73a39b6fe456b8192fcc3585f602af20751600e974dd455e77"
 
 [[package]]
 name = "litep2p"
-version = "0.13.0"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c68ba359d7f1a80d18821b46575d5ddb9a9a6672fe0669f5fc9e83cab9abd760"
+checksum = "cbf3924cf539a761465543592b34c4198d60db2cda16594769edd43451e5ab41"
 dependencies = [
  "async-trait",
  "bs58",
@@ -5323,6 +5323,7 @@ dependencies = [
  "futures-timer",
  "hickory-resolver 0.25.2",
  "indexmap",
+ "ip_network",
  "libc",
  "mockall",
  "multiaddr 0.17.1",
@@ -5351,7 +5352,7 @@ dependencies = [
  "url",
  "x25519-dalek",
  "x509-parser 0.17.0",
- "yamux 0.13.8",
+ "yamux 0.13.10",
  "yasna",
  "zeroize",
 ]
@@ -8523,38 +8524,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sc-consensus-aura"
-version = "0.55.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d0a1f71f569e49cd18d5e804782535e017d9f1672defbec1a646f0004f63104"
-dependencies = [
- "async-trait",
- "fork-tree",
- "futures",
- "log",
- "parity-scale-codec",
- "parking_lot 0.12.5",
- "sc-block-builder",
- "sc-client-api",
- "sc-consensus",
- "sc-consensus-slots",
- "sc-telemetry",
- "sp-api",
- "sp-application-crypto",
- "sp-block-builder",
- "sp-blockchain",
- "sp-consensus",
- "sp-consensus-aura",
- "sp-consensus-slots",
- "sp-core",
- "sp-inherents",
- "sp-keystore",
- "sp-runtime",
- "substrate-prometheus-endpoint",
- "thiserror 1.0.69",
-]
-
-[[package]]
 name = "sc-consensus-babe"
 version = "0.55.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8646,6 +8615,32 @@ dependencies = [
  "sp-core",
  "sp-crypto-hashing",
  "sp-keystore",
+ "sp-runtime",
+ "substrate-prometheus-endpoint",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "sc-consensus-pow"
+version = "0.54.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f90e9d28ce1dbb56b218dee6a2f195d60fd7fbac8bb5a7e24da2460eee20fa4"
+dependencies = [
+ "async-trait",
+ "futures",
+ "futures-timer",
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.12.5",
+ "sc-client-api",
+ "sc-consensus",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-pow",
+ "sp-core",
+ "sp-inherents",
  "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror 1.0.69",
@@ -8964,9 +8959,9 @@ dependencies = [
 
 [[package]]
 name = "sc-network-types"
-version = "0.20.1"
+version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11103f2e35999989326ed5be87f0a7d335269bef6d6a1c0ddd543a7d9aed7788"
+checksum = "7dad571c070fc5d7665b443a4b5f7c4644270159d92c19e9cc43ecb490c266fb"
 dependencies = [
  "bs58",
  "bytes",
@@ -9371,9 +9366,9 @@ dependencies = [
 
 [[package]]
 name = "sc-utils"
-version = "20.0.0"
+version = "20.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d58dbfbc4408b0d210a6b7099c07caf02001e6975f62e316ea5b5c1f5c2108f4"
+checksum = "347bdbd75c82b548636988199a24c402c942aade1f092026503a636e4d52fbca"
 dependencies = [
  "async-channel 1.9.0",
  "futures",
@@ -10134,6 +10129,7 @@ dependencies = [
  "frame-metadata-hash-extension",
  "frame-system",
  "futures",
+ "futures-timer",
  "jsonrpsee",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
@@ -10141,8 +10137,8 @@ dependencies = [
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
- "sc-consensus-aura",
  "sc-consensus-grandpa",
+ "sc-consensus-pow",
  "sc-executor",
  "sc-network",
  "sc-offchain",
@@ -10156,6 +10152,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus-aura",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-genesis-builder",
  "sp-inherents",
  "sp-io",
@@ -10259,9 +10256,9 @@ dependencies = [
 
 [[package]]
 name = "sp-arithmetic"
-version = "28.0.0"
+version = "28.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5f4755af7cc57f4a2a830e134b403fc832caa5d93dacb970ffc7ac717f38c40"
+checksum = "4e06588d1c43f60b9bb7f989785689842cc4cc8ce0e19d1c47686b1ff5fe9548"
 dependencies = [
  "docify",
  "integer-sqrt",
@@ -10382,6 +10379,18 @@ dependencies = [
  "sp-application-crypto",
  "sp-core",
  "sp-keystore",
+ "sp-runtime",
+]
+
+[[package]]
+name = "sp-consensus-pow"
+version = "0.46.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9eab783570cd2e3b8a8630dc29382bcc997028331cb2527e9e4bdf6f9c48f733"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api",
+ "sp-core",
  "sp-runtime",
 ]
 
@@ -11175,9 +11184,9 @@ dependencies = [
 
 [[package]]
 name = "substrate-bip39"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca58ffd742f693dc13d69bdbb2e642ae239e0053f6aab3b104252892f856700a"
+checksum = "d93affb0135879b1b67cbcf6370a256e1772f9eaaece3899ec20966d67ad0492"
 dependencies = [
  "hmac 0.12.1",
  "pbkdf2",
@@ -13506,9 +13515,9 @@ dependencies = [
 
 [[package]]
 name = "yamux"
-version = "0.13.8"
+version = "0.13.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deab71f2e20691b4728b349c6cee8fc7223880fa67b6b4f92225ec32225447e5"
+checksum = "1991f6690292030e31b0144d73f5e8368936c58e45e7068254f7138b23b00672"
 dependencies = [
  "futures",
  "log",
