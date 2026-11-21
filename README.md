@@ -22,6 +22,7 @@ Requirements:
 
 - Rust `1.88.0` with the `wasm32-unknown-unknown` target;
 - LLVM/libclang on macOS;
+- `protoc` (`brew install protobuf`) for `litep2p`;
 - Node.js for the devnet RPC check.
 
 ```sh
