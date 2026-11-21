@@ -4,7 +4,7 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 13: native emission accounting and PoW/treasury rewards in development. This is not a launched mainnet or active mainnet tokenomics.
+Contour 14: verifiable GRANDPA participation evidence. Validator reward distribution is not yet activated.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
@@ -14,7 +14,7 @@ Runtime `spec_version` is `110`. Sudo, the template pallet and Aura have been re
 
 The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration.
 
-Verified: 43 workspace tests, 7 JavaScript address-codec tests, 3 indexer tests and both clippy configurations pass. The isolated production-candidate example finalized block 40, executed its multisig/timelocked issuer change and finalized a synthetic passport record with a verified 256-sibling registry proof. The multi-node regression separately confirmed finality loss/recovery, canonical reorg handling and `orphaned` indexer history.
+Verified: 44 workspace tests, 7 JavaScript address-codec tests, 3 indexer tests and both clippy configurations pass. The isolated production-candidate example finalized block 40, executed its multisig/timelocked issuer change and finalized a synthetic passport record with a verified 256-sibling registry proof. The multi-node regression separately confirmed finality loss/recovery, canonical reorg handling and `orphaned` indexer history.
 
 ## Native reward ledger
 
@@ -25,6 +25,12 @@ Each PoW `PreRuntime` digest carries `version=0 + AccountId32` for the public pa
 Obligations are recorded in canonical block state. PoW and treasury mature after 10 blocks in the development configuration, while the GRANDPA share is only accrued and is not minted or paid until verifiable validator work is implemented. Canonical maturation is not a claim of GRANDPA finality proof. Development presets enable this ledger for testing; the production example and the existing six-node testnet have not activated a new emission schedule.
 
 Read-only `mfc_rewardTotals(at?)` and `mfc_rewardObligation(block, at?)` expose accounting for independent verification. Amounts are strings to avoid JavaScript precision loss.
+
+## GRANDPA evidence
+
+`mfc_validatorEvidence(block_hash)` decodes the block's GRANDPA justification, checks the commit target, ancestry, authority set id and validator signatures, and returns the actual precommit signers. Missing or invalid justifications are rejected instead of being treated as validator activity. The development node stores a justification for every finalized block so the proof remains queryable after a restart; the additional disk usage and production retention policy require review before a public launch.
+
+This is a read-only proof of participation, not a payout mechanism. The 35% validator pool remains accrued and is not minted until the reward-release contour uses this evidence safely. `scripts/check-grandpa-evidence.mjs` verifies a finalized block and rejects a block without a valid proof.
 
 ## Canonical account addresses
 

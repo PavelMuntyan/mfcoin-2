@@ -137,7 +137,13 @@ try {
   });
   if (governance.status !== 0) throw new Error(`Governance example failed: ${governance.stdout}\n${governance.stderr}`);
 
-  const head = await finalized(9960);
+  const { head, evidence } = await waitFor("two-validator GRANDPA evidence", async () => {
+    const head = await finalized(9960);
+    const evidence = await rpc(9960, "mfc_validatorEvidence", [head.hash]);
+    return { head, evidence };
+  });
+  assert.equal(evidence.verified, true);
+  assert.equal(evidence.precommitCount, 2);
   const info = await rpc(9960, "freeland_latestBlockInfo", [head.hash]);
   const record = await rpc(9960, "freeland_latestRecord", ["passport", `0x${"11".repeat(32)}`, head.hash]);
   assert.ok(record, "Synthetic passport record was not finalized");
@@ -153,6 +159,7 @@ try {
     chain: "MFCoin 2.0",
     finalizedHeight: head.number,
     finalizedHash: head.hash,
+    validatorEvidence: evidence,
     infoRoot: info.infoRoot,
     registryRoot: info.registryRoot,
     subjectCommitment: record.subjectCommitment

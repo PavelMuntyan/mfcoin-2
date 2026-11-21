@@ -171,6 +171,17 @@ async function quorumScenario() {
     return head.number >= 3;
   }, 120_000);
   results.quorumBeforeLoss = await finalized(9944);
+  if (process.env.CHECK_EVIDENCE === "1") {
+    const { head, evidence } = await waitFor("four-validator GRANDPA evidence", async () => {
+      const head = await finalized(9944);
+      const evidence = await rpc(9944, "mfc_validatorEvidence", [head.hash]);
+      return { head, evidence };
+    });
+    results.quorumBeforeLoss = head;
+    assert.equal(evidence.verified, true);
+    assert.ok(evidence.precommitCount >= 3, `Expected at least 3 precommit votes, got ${evidence.precommitCount}`);
+    results.validatorEvidence = evidence;
+  }
 
   await Promise.all([stopNode(bob), stopNode(dave)]);
   await sleep(2000);

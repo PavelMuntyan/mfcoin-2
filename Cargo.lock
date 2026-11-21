@@ -10180,6 +10180,7 @@ dependencies = [
  "pallet-staking",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
+ "parity-scale-codec",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",

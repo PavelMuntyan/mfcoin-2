@@ -5,10 +5,11 @@ mod benchmarking;
 mod chain_spec;
 mod cli;
 mod command;
+mod grandpa_evidence;
 mod pow;
 mod rpc;
 mod service;
 
 fn main() -> sc_cli::Result<()> {
-    command::run()
+	command::run()
 }

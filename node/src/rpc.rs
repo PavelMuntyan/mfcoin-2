@@ -21,12 +21,14 @@ use pallet_freeland_records::{
 	RecordAction, RecordKind, RegistryProof,
 };
 use pallet_mfc_rewards::{MfcRewardsApi as MfcRewardsRuntimeApi, RewardObligation, RewardTotals};
+use sc_client_api::BlockBackend;
 use sc_transaction_pool_api::TransactionPool;
 use serde_json::{json, Value};
 use solochain_template_runtime::{opaque::Block, AccountId, Balance, Nonce};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
+use sp_consensus_grandpa::GrandpaApi;
 use sp_core::H256;
 
 /// Full client dependencies.
@@ -235,12 +237,22 @@ pub trait MfcRewards {
 	/// Return the reward obligation for a specific block height.
 	#[method(name = "rewardObligation")]
 	fn reward_obligation(&self, block: u32, at: Option<H256>) -> RpcResult<Option<Value>>;
+
+	/// Verify GRANDPA justification and return the actual precommit signers for a block.
+	#[method(name = "validatorEvidence")]
+	fn validator_evidence(&self, block_hash: H256) -> RpcResult<Value>;
 }
 
 impl<C> MfcRewardsServer for MfcRewardsRpc<C>
 where
-	C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
+	C: ProvideRuntimeApi<Block>
+		+ HeaderBackend<Block>
+		+ BlockBackend<Block>
+		+ Send
+		+ Sync
+		+ 'static,
 	C::Api: MfcRewardsRuntimeApi<Block, AccountId, Balance>,
+	C::Api: sp_consensus_grandpa::GrandpaApi<Block>,
 {
 	fn reward_totals(&self, at: Option<H256>) -> RpcResult<Value> {
 		let at = at.unwrap_or_else(|| self.client.info().best_hash);
@@ -278,6 +290,35 @@ where
 				"treasuryAmount": treasury_amount.to_string(),
 				"validatorAmount": validator_amount.to_string(),
 			})
+		}))
+	}
+
+	fn validator_evidence(&self, block_hash: H256) -> RpcResult<Value> {
+		let signed_block = self
+			.client
+			.block(block_hash)
+			.map_err(runtime_error)?
+			.ok_or_else(|| runtime_error(format!("Block not found: {block_hash}")))?;
+		let authorities = self
+			.client
+			.runtime_api()
+			.grandpa_authorities(block_hash)
+			.map_err(runtime_error)?;
+		let set_id = self
+			.client
+			.runtime_api()
+			.current_set_id(block_hash)
+			.map_err(runtime_error)?;
+		let evidence =
+			crate::grandpa_evidence::verify_signed_block(signed_block, &authorities, set_id)
+				.map_err(runtime_error)?;
+		Ok(json!({
+			"blockHash": evidence.block_hash,
+			"blockNumber": evidence.block_number,
+			"round": evidence.round,
+			"precommitAuthorities": evidence.precommit_authorities,
+			"precommitCount": evidence.precommit_authorities.len(),
+			"verified": true,
 		}))
 	}
 }
@@ -358,13 +399,17 @@ pub fn create_full<C, P>(
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
 	C: ProvideRuntimeApi<Block>,
-	C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
+	C: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = BlockChainError>
+		+ BlockBackend<Block>
+		+ 'static,
 	C: Send + Sync + 'static,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: FreelandRuntimeApi<Block, AccountId>,
 	C::Api: MfcRewardsRuntimeApi<Block, AccountId, Balance>,
+	C::Api: sp_consensus_grandpa::GrandpaApi<Block>,
 	P: TransactionPool + 'static,
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
