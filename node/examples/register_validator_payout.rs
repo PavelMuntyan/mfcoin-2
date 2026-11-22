@@ -38,6 +38,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let payout: AccountId32 = payout;
 	let api = OnlineClient::<PolkadotConfig>::from_insecure_url(&url).await?;
 	let http = HttpClientBuilder::default().build(url.replace("ws://", "http://"))?;
+	let authority_hash = H256::from_slice(authority.as_ref());
+	let registered = http
+		.request::<Option<AccountId32>, _>(
+			"mfc_validatorPayout",
+			rpc_params![set_id, authority_hash, Option::<H256>::None],
+		)
+		.await?;
+	if registered.as_ref() == Some(&payout) {
+		println!("validator_payout_registered=true already_present=true set_id={set_id}");
+		return Ok(());
+	}
 	let nonce = http
 		.request::<String, _>(
 			"mfc_validatorPayoutNonce",
