@@ -49,11 +49,14 @@ async function waitFor(description, check, timeout = 120_000) {
 async function startNode(name, rpcPort, p2pPort, bootnodes = [], disableGrandpa = false) {
   const basePath = path.join(root, name);
   await fs.mkdir(basePath, { recursive: true });
-  const key = spawnSync(binary, ["key", "generate-node-key", "--base-path", basePath, "--chain", raw], {
-    env,
-    encoding: "utf8"
-  });
-  if (key.status !== 0) throw new Error(`Could not generate ${name} network key: ${key.stderr}`);
+  const keyPath = path.join(basePath, "chains/mfcoin-rewards-test/network/secret_ed25519");
+  if (!await fs.access(keyPath).then(() => true, () => false)) {
+    const key = spawnSync(binary, ["key", "generate-node-key", "--base-path", basePath, "--chain", raw], {
+      env,
+      encoding: "utf8"
+    });
+    if (key.status !== 0) throw new Error(`Could not generate ${name} network key: ${key.stderr}`);
+  }
   const payoutAccounts = {
     alice: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
     bob: "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
@@ -68,7 +71,7 @@ async function startNode(name, rpcPort, p2pPort, bootnodes = [], disableGrandpa 
     "--pow-payout-account", payoutAccounts[name],
     `--${name}`
   ];
-  if (disableGrandpa) args.push("--disable-grandpa");
+  if (disableGrandpa) args.push("--no-grandpa");
   for (const bootnode of bootnodes) args.push("--bootnodes", bootnode);
   const log = createWriteStream(path.join(root, `${name}.log`), { flags: "a" });
   const child = spawn(binary, args, { env, stdio: ["ignore", "pipe", "pipe"] });
@@ -145,7 +148,7 @@ try {
   await waitFor("mature two-validator finality", async () => {
     const hash = await rpc(9960, "chain_getFinalizedHead");
     const header = await rpc(9960, "chain_getHeader", [hash]);
-    return Number(header.number) >= 22;
+    return Number(header.number) >= (delayFinality ? 30 : 22);
   });
 
   const relayer = runExample(path.resolve("target/release/examples/reward_relayer"), {
@@ -154,10 +157,25 @@ try {
     MFC_RELAYER_QUEUE: path.join(root, "queue.json")
   });
   assert.match(relayer, /validator_relay_finalized=true/);
-  if (delayFinality) assert.match(relayer, /validator_relay_unfinalized_skipped=true/);
-  const claim = runExample(path.resolve("target/release/examples/validator_rewards"));
+  let claim;
+  if (delayFinality) {
+    assert.match(relayer, /validator_relay_unfinalized_skipped=true/);
+    const target = relayer.match(/validator_relay_finalized=true target=(\d+)/)[1];
+    runExample(path.resolve("target/release/examples/register_validator_payout"), {
+      MFC_VALIDATOR_SEED: "//Alice",
+      MFC_RELAYER_SEED: "//Alice",
+      MFC_VALIDATOR_PAYOUT: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+    });
+    claim = runExample(path.resolve("target/release/examples/claim_validator_credit"), {
+      MFC_VALIDATOR_SEED: "//Alice",
+      MFC_RELAYER_SEED: "//Alice",
+      MFC_REWARD_TARGET: target
+    });
+  } else {
+    claim = runExample(path.resolve("target/release/examples/validator_rewards"));
+    assert.match(claim, /duplicate_release_rejected=true/);
+  }
   assert.match(claim, /validator_credit_claimed=true/);
-  assert.match(claim, /duplicate_release_rejected=true/);
   const totals = await rpc(9960, "mfc_rewardTotals", [null]);
   assert.ok(BigInt(totals.validatorPaid) > 0n);
   assert.equal(
