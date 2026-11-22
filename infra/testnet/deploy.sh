@@ -81,6 +81,16 @@ for index in 1 2 3 4; do
 done
 trap - EXIT
 
+start_or_reload() {
+  local name=$1
+  shift
+  if pm2 describe "$name" >/dev/null 2>&1; then
+    pm2 restart "$name" --update-env
+  else
+    pm2 start "$@" --name "$name"
+  fi
+}
+
 export MFCOIN_GRANDPA_JUSTIFICATION_PERIOD=1
 for index in 1 2 3 4; do
   rpc_port=$((9943 + index))
@@ -94,7 +104,7 @@ for index in 1 2 3 4; do
   if [ "$index" -gt 1 ]; then
     args+=(--bootnodes "$BOOTNODE")
   fi
-  pm2 startOrReload "$NODE" --name "mfc112-validator-$index" --cwd "$ROOT" --time -- "${args[@]}"
+  start_or_reload "mfc112-validator-$index" "$NODE" --cwd "$ROOT" --time -- "${args[@]}"
 done
 
 for index in 1 2; do
@@ -104,8 +114,7 @@ for index in 1 2; do
   MFC_RELAYER_START_TARGET=100 \
   MFC_RELAYER_ONCE=0 \
   DEVNET_WS_URL=ws://127.0.0.1:9945 \
-    pm2 startOrReload "$BIN/examples/reward_relayer" \
-      --name "mfc112-relayer-$index" --cwd "$ROOT" --time
+    start_or_reload "mfc112-relayer-$index" "$BIN/examples/reward_relayer" --cwd "$ROOT" --time
 done
 
 MFCOIN_CHAIN_SPEC="$OPERATORS" MFCOIN_RPC_URL=http://127.0.0.1:9944 \
