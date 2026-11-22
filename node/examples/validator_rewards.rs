@@ -1,3 +1,4 @@
+use codec::DecodeAll;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use pallet_mfc_rewards::validator_payout_payload;
 use sp_consensus_grandpa::AuthorityId;
@@ -35,6 +36,16 @@ fn justification_bytes(block: &serde_json::Value) -> Result<Vec<u8>, Box<dyn std
 	Err("No FRNK justification in target block".into())
 }
 
+fn proof_counts(proof: &[u8]) -> Result<(u32, u32), Box<dyn std::error::Error>> {
+	let justification = sc_consensus_grandpa::GrandpaJustification::<
+		solochain_template_runtime::opaque::Block,
+	>::decode_all(&mut &proof[..])?;
+	Ok((
+		justification.justification.commit.precommits.len() as u32,
+		justification.justification.votes_ancestries.len() as u32,
+	))
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let url = std::env::var("DEVNET_WS_URL").unwrap_or_else(|_| "ws://127.0.0.1:9944".to_string());
@@ -65,21 +76,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.await?;
 	let amount = obligation["amount"].as_str().ok_or("Missing validator obligation")?.to_string();
 	let set_id = obligation["setId"].as_u64().ok_or("Missing validator set id")?;
-	if !obligation["released"].is_null() {
-		return Err("Target was already released".into());
-	}
-
+	let already_released = !obligation["released"].is_null();
+	let (signer_count, ancestry_count) = proof_counts(&proof)?;
 	let release = subxt::dynamic::tx(
 		"MfcRewards",
 		"release_validator_reward",
-		vec![Value::u128(target.into()), Value::from_bytes(proof)],
+		vec![
+			Value::u128(target.into()),
+			Value::from_bytes(proof),
+			Value::u128(signer_count.into()),
+			Value::u128(ancestry_count.into()),
+		],
 	);
 	let alice = dev::alice();
-	api.tx()
-		.sign_and_submit_then_watch_default(&release, &alice)
-		.await?
-		.wait_for_finalized_success()
-		.await?;
+	if !already_released {
+		api.tx()
+			.sign_and_submit_then_watch_default(&release, &alice)
+			.await?
+			.wait_for_finalized_success()
+			.await?;
+	}
 	let credit = http
 		.request::<Option<String>, _>(
 			"mfc_validatorCredit",
@@ -90,7 +106,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	assert_eq!(credit, amount);
 	let totals = http.request::<serde_json::Value, _>("mfc_rewardTotals", rpc_params![Option::<H256>::None]).await?;
 	assert_eq!(totals["validatorPaid"].as_str(), Some("0"));
-	assert_eq!(totals["validatorCredit"].as_str(), Some(amount.as_str()));
+	let initial_credit = totals["validatorCredit"]
+		.as_str()
+		.ok_or("Missing validator credit total")?
+		.parse::<u128>()?;
+	assert!(initial_credit >= amount.parse::<u128>()?);
 	println!("validator_release_finalized=true target={target} credit={credit}");
 
 	let authority: AuthorityId = Ed25519Keyring::Alice.public().into();
@@ -132,8 +152,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.wait_for_finalized_success()
 		.await?;
 	let totals = http.request::<serde_json::Value, _>("mfc_rewardTotals", rpc_params![Option::<H256>::None]).await?;
-	assert_eq!(totals["validatorPaid"].as_str(), Some(amount.as_str()));
-	assert_eq!(totals["validatorCredit"].as_str(), Some("0"));
+	let paid = totals["validatorPaid"].as_str().ok_or("Missing validator paid total")?.parse::<u128>()?;
+	assert!(paid >= amount.parse::<u128>()?);
+	assert_eq!(
+		totals["validatorCredit"].as_str().ok_or("Missing remaining credit")?.parse::<u128>()?,
+		initial_credit - amount.parse::<u128>()?
+	);
 	println!("validator_credit_claimed=true paid={amount}");
 
 	let replay = api

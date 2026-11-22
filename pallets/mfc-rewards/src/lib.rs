@@ -18,6 +18,9 @@ use sp_runtime::{
 pub use pallet::*;
 pub mod economics;
 pub mod evidence;
+pub mod weights;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -44,6 +47,12 @@ pub struct RewardObligation<AccountId, Balance> {
 
 #[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct ValidatorObligation<Balance> {
+	pub amount: Balance,
+	pub set_id: SetId,
+}
+
+#[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+pub struct ValidatorCredit<Balance> {
 	pub amount: Balance,
 	pub set_id: SetId,
 }
@@ -90,6 +99,7 @@ pub fn validator_payout_payload<AccountId: Encode, Hash: Encode>(
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use crate::weights::WeightInfo as RewardWeightInfo;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -102,7 +112,9 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type Currency: Currency<Self::AccountId>;
 		type RewardMaturation: Get<BlockNumberFor<Self>>;
+		type EvidenceRetention: Get<BlockNumberFor<Self>>;
 		type MaxEncodedEvidence: Get<u32>;
+		type WeightInfo: weights::WeightInfo;
 	}
 
 	#[pallet::pallet]
@@ -182,9 +194,12 @@ pub mod pallet {
 		BlockNumberFor<T>,
 		Blake2_128Concat,
 		AuthorityId,
-		BalanceOf<T>,
+		ValidatorCredit<BalanceOf<T>>,
 		OptionQuery,
 	>;
+
+	#[pallet::storage]
+	pub type LatestValidatorSetId<T: Config> = StorageValue<_, SetId, OptionQuery>;
 
 	#[pallet::storage]
 	pub type ScheduledTotal<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
@@ -235,6 +250,11 @@ pub mod pallet {
 				T::RewardMaturation::get() > Zero::zero(),
 				"reward maturation must be positive"
 			);
+			assert!(
+				T::EvidenceRetention::get() > T::RewardMaturation::get()
+					&& T::EvidenceRetention::get() <= T::BlockHashCount::get(),
+				"evidence retention must exceed maturation and fit canonical hashes"
+			);
 			Enabled::<T>::set(self.enabled);
 			ActivationBlock::<T>::set(self.activation_block);
 			TreasuryAccount::<T>::set(self.treasury_account.clone());
@@ -275,6 +295,9 @@ pub mod pallet {
 			payout: T::AccountId,
 			amount: BalanceOf<T>,
 		},
+		ValidatorRewardHistoryPruned {
+			block: BlockNumberFor<T>,
+		},
 	}
 
 	#[pallet::error]
@@ -288,6 +311,7 @@ pub mod pallet {
 		InvalidValidatorSignature,
 		InvalidEvidenceEncoding,
 		EvidenceTooLarge,
+		EvidenceWeightMismatch,
 		InvalidJustification,
 		InvalidVoteAncestry,
 		UnusedAncestryHeaders,
@@ -308,11 +332,13 @@ pub mod pallet {
 		BlockNumberFor<T>: finality_grandpa::BlockNumberOps,
 	{
 		#[pallet::call_index(0)]
-		#[pallet::weight(Weight::from_parts(1_000_000_000, 262_144))]
+		#[pallet::weight(<T as Config>::WeightInfo::release_validator_reward(*signer_count, *ancestry_count))]
 		pub fn release_validator_reward(
 			origin: OriginFor<T>,
 			target: BlockNumberFor<T>,
 			encoded_justification: Vec<u8>,
+			signer_count: u32,
+			ancestry_count: u32,
 		) -> DispatchResult
 		where
 			BlockNumberFor<T>: finality_grandpa::BlockNumberOps,
@@ -338,6 +364,11 @@ pub mod pallet {
 				&mut &encoded_justification[..],
 			)
 			.map_err(|_| Error::<T>::InvalidEvidenceEncoding)?;
+			ensure!(
+				justification.commit.precommits.len() as u32 == signer_count
+					&& justification.votes_ancestries.len() as u32 == ancestry_count,
+				Error::<T>::EvidenceWeightMismatch
+			);
 			ensure!(
 				justification.commit.target_number == target,
 				Error::<T>::TargetMismatch
@@ -383,7 +414,11 @@ pub mod pallet {
 					drop(T::Currency::deposit_creating(&payout, share_balance));
 					paid = paid.checked_add(share).ok_or(Error::<T>::ArithmeticOverflow)?;
 				} else if !share_balance.is_zero() {
-					ValidatorCredits::<T>::insert(target, &authority, share_balance);
+					ValidatorCredits::<T>::insert(
+						target,
+						&authority,
+						ValidatorCredit { amount: share_balance, set_id: obligation.set_id },
+					);
 					credited = credited
 						.checked_add(share)
 						.ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -430,7 +465,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(Weight::from_parts(50_000_000, 16_384))]
+		#[pallet::weight(<T as Config>::WeightInfo::register_validator_payout())]
 		pub fn register_validator_payout(
 			origin: OriginFor<T>,
 			set_id: SetId,
@@ -476,18 +511,17 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
-		#[pallet::weight(Weight::from_parts(50_000_000, 16_384))]
+		#[pallet::weight(<T as Config>::WeightInfo::claim_validator_credit())]
 		pub fn claim_validator_credit(
 			origin: OriginFor<T>,
 			target: BlockNumberFor<T>,
 			authority: AuthorityId,
 		) -> DispatchResult {
 			let _relayer = ensure_signed(origin)?;
-			let amount = ValidatorCredits::<T>::get(target, &authority)
+			let credit = ValidatorCredits::<T>::get(target, &authority)
 				.ok_or(Error::<T>::NoValidatorCredit)?;
-			let obligation = ValidatorObligations::<T>::get(target)
-				.ok_or(Error::<T>::UnknownValidatorObligation)?;
-			let payout = ValidatorPayouts::<T>::get(obligation.set_id, &authority)
+			let amount = credit.amount;
+			let payout = ValidatorPayouts::<T>::get(credit.set_id, &authority)
 				.ok_or(Error::<T>::NoValidatorPayout)?;
 			ValidatorCredits::<T>::remove(target, &authority);
 			ValidatorCreditTotal::<T>::mutate(|total| {
@@ -508,6 +542,10 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+			<T as Config>::WeightInfo::on_finalize()
+		}
+
 		fn on_finalize(block_number: BlockNumberFor<T>) {
 			if !Enabled::<T>::get() || block_number < ActivationBlock::<T>::get() {
 				return;
@@ -529,10 +567,7 @@ pub mod pallet {
 				validator_amount: validator_amount.saturated_into(),
 			};
 			Obligations::<T>::insert(block_number, obligation);
-			let set_id = pallet_grandpa::Pallet::<T>::current_set_id();
-			if !ValidatorSets::<T>::contains_key(set_id) {
-				ValidatorSets::<T>::insert(set_id, pallet_grandpa::Authorities::<T>::get());
-			}
+			let set_id = record_validator_set::<T>();
 			ValidatorObligations::<T>::insert(
 				block_number,
 				ValidatorObligation {
@@ -553,33 +588,64 @@ pub mod pallet {
 			});
 
 			let mature = block_number.saturating_sub(T::RewardMaturation::get());
-			if mature < ActivationBlock::<T>::get() {
-				return;
+			if mature >= ActivationBlock::<T>::get() {
+				if let Some(reward) = Obligations::<T>::take(mature) {
+					let treasury = TreasuryAccount::<T>::get().expect("checked at genesis");
+					let pow_paid = reward.pow_amount + reward.treasury_amount;
+					drop(T::Currency::deposit_creating(
+						&reward.pow_payout,
+						reward.pow_amount,
+					));
+					drop(T::Currency::deposit_creating(
+						&treasury,
+						reward.treasury_amount,
+					));
+					MintedTotal::<T>::mutate(|total| *total = total.saturating_add(pow_paid));
+					PowPaid::<T>::mutate(|total| *total = total.saturating_add(reward.pow_amount));
+					TreasuryPaid::<T>::mutate(|total| {
+						*total = total.saturating_add(reward.treasury_amount)
+					});
+					Self::deposit_event(Event::RewardMatured {
+						block: mature,
+						pow_payout: reward.pow_payout,
+						pow_amount: reward.pow_amount,
+						treasury_amount: reward.treasury_amount,
+					});
+				}
 			}
-			if let Some(reward) = Obligations::<T>::take(mature) {
-				let treasury = TreasuryAccount::<T>::get().expect("checked at genesis");
-				let pow_paid = reward.pow_amount + reward.treasury_amount;
-				drop(T::Currency::deposit_creating(
-					&reward.pow_payout,
-					reward.pow_amount,
-				));
-				drop(T::Currency::deposit_creating(
-					&treasury,
-					reward.treasury_amount,
-				));
-				MintedTotal::<T>::mutate(|total| *total = total.saturating_add(pow_paid));
-				PowPaid::<T>::mutate(|total| *total = total.saturating_add(reward.pow_amount));
-				TreasuryPaid::<T>::mutate(|total| {
-					*total = total.saturating_add(reward.treasury_amount)
-				});
-				Self::deposit_event(Event::RewardMatured {
-					block: mature,
-					pow_payout: reward.pow_payout,
-					pow_amount: reward.pow_amount,
-					treasury_amount: reward.treasury_amount,
-				});
+
+			let expired = block_number.saturating_sub(T::EvidenceRetention::get());
+			if expired > Zero::zero() && expired >= ActivationBlock::<T>::get() {
+				let had_obligation = ValidatorObligations::<T>::contains_key(expired);
+				let had_release = ValidatorReleases::<T>::contains_key(expired);
+				ValidatorObligations::<T>::remove(expired);
+				ValidatorReleases::<T>::remove(expired);
+				if had_obligation || had_release {
+					Self::deposit_event(Event::ValidatorRewardHistoryPruned { block: expired });
+				}
 			}
 		}
+	}
+
+	fn record_validator_set<T: Config>() -> SetId {
+		let current_set_id = pallet_grandpa::Pallet::<T>::current_set_id();
+		let current_authorities = pallet_grandpa::Authorities::<T>::get();
+		let Some(previous_set_id) = LatestValidatorSetId::<T>::get() else {
+			ValidatorSets::<T>::insert(current_set_id, current_authorities);
+			LatestValidatorSetId::<T>::put(current_set_id);
+			return current_set_id;
+		};
+		if current_set_id > previous_set_id {
+			if !pallet_grandpa::PendingChange::<T>::exists() {
+				ValidatorSets::<T>::insert(current_set_id, current_authorities);
+				LatestValidatorSetId::<T>::put(current_set_id);
+			}
+			return previous_set_id;
+		}
+		if !ValidatorSets::<T>::contains_key(current_set_id) {
+			ValidatorSets::<T>::insert(current_set_id, current_authorities);
+		}
+		current_set_id
 	}
 
 	fn payout_from_digest<T: Config>() -> T::AccountId {

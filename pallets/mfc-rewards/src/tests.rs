@@ -18,6 +18,7 @@ fn finalize(block: u64, payout: u64) {
 	System::initialize(&block, &parent, &Default::default());
 	frame_system::BlockHash::<Test>::insert(block, target_hash(block));
 	System::deposit_log(DigestItem::PreRuntime(POW_ENGINE_ID, payout_digest(payout)));
+	Grandpa::on_finalize(block);
 	MfcRewards::on_finalize(block);
 }
 
@@ -31,14 +32,30 @@ fn authority(key: Ed25519Keyring) -> AuthorityId {
 	key.public().into()
 }
 
+fn assert_emission_invariant() {
+	assert_eq!(
+		MintedTotal::<Test>::get(),
+		PowPaid::<Test>::get() + TreasuryPaid::<Test>::get() + ValidatorPaid::<Test>::get()
+	);
+}
+
 fn justification(target: u64, round: u64, signers: &[Ed25519Keyring]) -> Vec<u8> {
+	justification_for_set(target, round, 0, signers)
+}
+
+fn justification_for_set(
+	target: u64,
+	round: u64,
+	set_id: u64,
+	signers: &[Ed25519Keyring],
+) -> Vec<u8> {
 	let hash = target_hash(target);
 	let precommit = Precommit::new(hash, target);
 	let message = Message::Precommit(precommit.clone());
 	let precommits = signers
 		.iter()
 		.map(|key| {
-			let payload = localized_payload(round, 0, &message);
+			let payload = localized_payload(round, set_id, &message);
 			SignedPrecommit {
 				precommit: precommit.clone(),
 				signature: key.pair().sign(&payload).into(),
@@ -59,7 +76,16 @@ fn justification(target: u64, round: u64, signers: &[Ed25519Keyring]) -> Vec<u8>
 }
 
 fn release(target: u64, proof: Vec<u8>) -> DispatchResult {
-	MfcRewards::release_validator_reward(RuntimeOrigin::signed(account(1)), target, proof)
+	let decoded = GrandpaJustification::<HeaderOf<Test>>::decode_all(&mut &proof[..]).unwrap();
+	let signers = decoded.commit.precommits.len() as u32;
+	let headers = decoded.votes_ancestries.len() as u32;
+	MfcRewards::release_validator_reward(
+		RuntimeOrigin::signed(account(1)),
+		target,
+		proof,
+		signers,
+		headers,
+	)
 }
 
 fn register(key: Ed25519Keyring, payout: u64, nonce: u64) -> DispatchResult {
@@ -124,9 +150,16 @@ fn validator_release_pays_actual_signers_once() {
 		assert_eq!(release_info.round, 7);
 		assert_eq!(release_info.signers, 2);
 		assert_noop!(
-			release(1, justification(1, 7, &[Ed25519Keyring::Alice, Ed25519Keyring::Bob])),
+			MfcRewards::release_validator_reward(
+				RuntimeOrigin::signed(account(2)),
+				1,
+				justification(1, 7, &[Ed25519Keyring::Alice, Ed25519Keyring::Bob]),
+				2,
+				0
+			),
 			Error::<Test>::AlreadyReleased
 		);
+		assert_emission_invariant();
 	});
 }
 
@@ -142,6 +175,15 @@ fn unregistered_signer_receives_credit_without_blocking_others() {
 		assert_eq!(ValidatorPaid::<Test>::get(), 0);
 		assert_eq!(ValidatorCreditTotal::<Test>::get(), validator);
 		assert_eq!(Balances::total_issuance(), issuance_before);
+		assert_noop!(
+			MfcRewards::claim_validator_credit(
+				RuntimeOrigin::signed(account(1)),
+				1,
+				authority(Ed25519Keyring::Alice)
+			),
+			Error::<Test>::NoValidatorPayout
+		);
+		assert!(ValidatorCredits::<Test>::get(1, authority(Ed25519Keyring::Alice)).is_some());
 		assert_ok!(register(Ed25519Keyring::Alice, 42, 0));
 		assert_ok!(MfcRewards::claim_validator_credit(
 			RuntimeOrigin::signed(account(1)),
@@ -159,6 +201,7 @@ fn unregistered_signer_receives_credit_without_blocking_others() {
 			),
 			Error::<Test>::NoValidatorCredit
 		);
+		assert_emission_invariant();
 	});
 }
 
@@ -169,13 +212,27 @@ fn forged_signature_and_noncanonical_target_are_rejected() {
 		finalize(2, 42);
 		finalize(3, 42);
 		let encoded = justification(1, 7, &[Ed25519Keyring::Alice, Ed25519Keyring::Bob]);
+		assert_noop!(
+			MfcRewards::release_validator_reward(
+				RuntimeOrigin::signed(account(1)),
+				1,
+				encoded.clone(),
+				1,
+				0
+			),
+			Error::<Test>::EvidenceWeightMismatch
+		);
 		let mut proof = GrandpaJustification::<HeaderOf<Test>>::decode_all(&mut &encoded[..]).unwrap();
 		proof.round = 8;
 		assert_noop!(release(1, proof.encode()), Error::<Test>::InvalidValidatorSignature);
 		frame_system::BlockHash::<Test>::insert(1, H256::repeat_byte(0xff));
-		assert_noop!(release(1, encoded), Error::<Test>::NonCanonicalTarget);
+		assert_noop!(release(1, encoded.clone()), Error::<Test>::NonCanonicalTarget);
 		assert!(ValidatorReleases::<Test>::get(1).is_none());
 		assert_eq!(ValidatorPaid::<Test>::get(), 0);
+		frame_system::BlockHash::<Test>::insert(1, target_hash(1));
+		assert_ok!(release(1, encoded.clone()));
+		assert_noop!(release(1, encoded), Error::<Test>::AlreadyReleased);
+		assert_emission_invariant();
 	});
 }
 
@@ -211,6 +268,67 @@ fn reward_requires_maturation_and_payout_registration_is_replay_protected() {
 		assert_ok!(register(Ed25519Keyring::Alice, 42, 0));
 		assert_noop!(register(Ed25519Keyring::Alice, 43, 0), Error::<Test>::StalePayoutRegistration);
 		assert_eq!(ValidatorPayouts::<Test>::get(0, authority(Ed25519Keyring::Alice)), Some(account(42)));
+	});
+}
+
+#[test]
+fn pruning_preserves_claimable_credit_and_blocks_replay() {
+	new_test_ext(true).execute_with(|| {
+		finalize(1, 42);
+		finalize(2, 42);
+		finalize(3, 42);
+		assert_ok!(release(1, justification(1, 7, &[Ed25519Keyring::Alice, Ed25519Keyring::Bob])));
+		assert!(ValidatorReleases::<Test>::get(1).is_some());
+		finalize(4, 42);
+		finalize(5, 42);
+		assert!(ValidatorObligations::<Test>::get(1).is_none());
+		assert!(ValidatorReleases::<Test>::get(1).is_none());
+		assert!(ValidatorCredits::<Test>::get(1, authority(Ed25519Keyring::Alice)).is_some());
+		assert_noop!(
+			release(1, justification(1, 7, &[Ed25519Keyring::Alice, Ed25519Keyring::Bob])),
+			Error::<Test>::UnknownValidatorObligation
+		);
+		assert_ok!(register(Ed25519Keyring::Alice, 42, 0));
+		let before = ValidatorCreditTotal::<Test>::get();
+		assert_ok!(MfcRewards::claim_validator_credit(
+			RuntimeOrigin::signed(account(1)),
+			1,
+			authority(Ed25519Keyring::Alice)
+		));
+		assert!(ValidatorCreditTotal::<Test>::get() < before);
+		assert_emission_invariant();
+	});
+}
+
+#[test]
+fn authority_transition_pays_old_set_then_rotates_to_new_set() {
+	new_test_ext(true).execute_with(|| {
+		finalize(1, 42);
+		assert_ok!(Grandpa::schedule_change(
+			vec![(authority(Ed25519Keyring::Charlie), 1)],
+			1,
+			None
+		));
+		pallet_grandpa::CurrentSetId::<Test>::put(1);
+		finalize(2, 42);
+		finalize(3, 42);
+		assert_eq!(ValidatorObligations::<Test>::get(2).unwrap().set_id, 0);
+		assert_eq!(ValidatorObligations::<Test>::get(3).unwrap().set_id, 1);
+		finalize(4, 42);
+		assert_ok!(release(2, justification_for_set(
+			2,
+			7,
+			0,
+			&[Ed25519Keyring::Alice, Ed25519Keyring::Bob]
+		)));
+		finalize(5, 42);
+		assert_noop!(
+			release(3, justification_for_set(3, 8, 0, &[Ed25519Keyring::Alice, Ed25519Keyring::Bob])),
+			Error::<Test>::UnknownValidator
+		);
+		assert_ok!(release(3, justification_for_set(3, 8, 1, &[Ed25519Keyring::Charlie])));
+		assert_eq!(ValidatorSets::<Test>::get(1).unwrap().to_vec(), vec![(authority(Ed25519Keyring::Charlie), 1)]);
+		assert_emission_invariant();
 	});
 }
 

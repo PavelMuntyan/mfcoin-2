@@ -78,7 +78,9 @@ impl pallet_mfc_rewards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RewardMaturation = ConstU64<2>;
+	type EvidenceRetention = ConstU64<4>;
 	type MaxEncodedEvidence = ConstU32<{ 256 * 1024 }>;
+	type WeightInfo = pallet_mfc_rewards::weights::SubstrateWeight<Test>;
 }
 
 pub fn account(id: u64) -> AccountId32 {

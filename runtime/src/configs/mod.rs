@@ -160,7 +160,9 @@ impl pallet_mfc_rewards::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RewardMaturation = ConstU32<10>;
+	type EvidenceRetention = ConstU32<1200>;
 	type MaxEncodedEvidence = ConstU32<{ 256 * 1024 }>;
+	type WeightInfo = pallet_mfc_rewards::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_multisig::Config for Runtime {

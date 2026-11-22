@@ -6366,7 +6366,9 @@ dependencies = [
 name = "pallet-mfc-rewards"
 version = "0.1.0"
 dependencies = [
+ "ed25519-zebra",
  "finality-grandpa",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances",

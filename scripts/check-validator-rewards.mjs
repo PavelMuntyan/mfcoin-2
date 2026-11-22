@@ -50,6 +50,7 @@ try {
   await fs.mkdir(root, { recursive: true });
   const log = createWriteStream(path.join(root, "node.log"));
   const child = spawn(binary, ["--dev", "--base-path", root, "--rpc-port", "9957", "--no-mdns", "--no-prometheus"], {
+    env: { ...process.env, MFCOIN_GRANDPA_JUSTIFICATION_PERIOD: "1" },
     stdio: ["ignore", "pipe", "pipe"]
   });
   child.stdout.pipe(log);

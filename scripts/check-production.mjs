@@ -7,7 +7,11 @@ import path from "node:path";
 const binary = path.resolve("target/release/solochain-template-node");
 const example = path.resolve("target/release/examples/freeland_devnet");
 const root = path.resolve(".devnet/production-candidate-v1");
-const env = { ...process.env, MFCOIN_PRODUCTION_CONFIG: path.resolve("production.example.json") };
+const env = {
+  ...process.env,
+  MFCOIN_PRODUCTION_CONFIG: path.resolve("production.example.json"),
+  MFCOIN_GRANDPA_JUSTIFICATION_PERIOD: "1"
+};
 const children = new Set();
 
 function sleep(ms) {

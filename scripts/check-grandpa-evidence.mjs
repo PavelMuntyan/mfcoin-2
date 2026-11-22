@@ -48,6 +48,7 @@ try {
   await fs.rm(root, { recursive: true, force: true });
   await fs.mkdir(root, { recursive: true });
   const child = spawn(binary, ["--dev", "--base-path", root, "--rpc-port", "9956", "--no-mdns", "--no-prometheus"], {
+    env: { ...process.env, MFCOIN_GRANDPA_JUSTIFICATION_PERIOD: "1" },
     stdio: ["ignore", "ignore", "pipe"]
   });
   children.push(child);

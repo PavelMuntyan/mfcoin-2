@@ -72,9 +72,10 @@ jobs:
 
       - name: Check validator reward release and replay protection
         run: |
-          cargo +1.88.0 build --package solochain-template-node --release --example validator_rewards
+          cargo +1.88.0 build --package solochain-template-node --release --examples
           node scripts/check-validator-rewards.mjs
-        timeout-minutes: 5
+          node scripts/check-reward-relayer.mjs
+        timeout-minutes: 8
 
       - name: Make sure the node is producing blocks
         run: |

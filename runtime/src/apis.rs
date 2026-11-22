@@ -398,6 +398,7 @@ impl_runtime_apis! {
 
 		fn validator_credit(block: u32, authority: sp_consensus_grandpa::AuthorityId) -> Option<Balance> {
 			pallet_mfc_rewards::ValidatorCredits::<Runtime>::get(block, authority)
+				.map(|credit| credit.amount)
 		}
 	}
 

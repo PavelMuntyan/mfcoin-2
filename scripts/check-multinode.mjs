@@ -81,7 +81,10 @@ async function startNode({ scenario, name, rpcPort, p2pPort, mining = true, boot
   if (!mining) args.push("--disable-pow-mining");
   for (const bootnode of bootnodes) args.push("--bootnodes", bootnode);
   const log = createWriteStream(path.join(root, scenario, `${name}.log`), { flags: "a" });
-  const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(binary, args, {
+    env: { ...process.env, MFCOIN_GRANDPA_JUSTIFICATION_PERIOD: "1" },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
   child.stdout.pipe(log);
   child.stderr.pipe(log);
   const entry = { child, scenario, name, log };

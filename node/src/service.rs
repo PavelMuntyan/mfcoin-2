@@ -27,8 +27,18 @@ pub(crate) type FullClient = sc_service::TFullClient<
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
-/// Keep a cryptographic participation proof for every finalized block.
-const GRANDPA_JUSTIFICATION_PERIOD: u32 = 1;
+fn grandpa_justification_period() -> u32 {
+	std::env::var("MFCOIN_GRANDPA_JUSTIFICATION_PERIOD")
+		.ok()
+		.map(|value| {
+			value
+				.parse::<u32>()
+				.ok()
+				.filter(|period| *period > 0)
+				.expect("MFCOIN_GRANDPA_JUSTIFICATION_PERIOD must be a positive integer")
+		})
+		.unwrap_or(512)
+}
 
 pub type Service = sc_service::PartialComponents<
 	FullClient,
@@ -86,7 +96,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 
 	let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
 		client.clone(),
-		GRANDPA_JUSTIFICATION_PERIOD,
+		grandpa_justification_period(),
 		&client,
 		select_chain.clone(),
 		telemetry.as_ref().map(|x| x.handle()),
@@ -349,7 +359,7 @@ pub fn new_full<
 		let grandpa_config = sc_consensus_grandpa::Config {
 			// FIXME #1578 make this available through chainspec
 			gossip_duration: Duration::from_millis(333),
-			justification_generation_period: GRANDPA_JUSTIFICATION_PERIOD,
+			justification_generation_period: grandpa_justification_period(),
 			name: Some(name),
 			observer_enabled: false,
 			keystore,

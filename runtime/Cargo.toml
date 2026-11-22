@@ -99,6 +99,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-freeland-records/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
+	"pallet-mfc-rewards/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
