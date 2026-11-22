@@ -22,6 +22,8 @@ fn proof_counts(proof: &[u8]) -> Result<(u32, u32), Box<dyn std::error::Error>> 
 struct Queue {
 	next_target: u32,
 	pending: Vec<PendingProof>,
+	#[serde(default)]
+	bootstrap_complete: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -119,13 +121,13 @@ async fn submit_release(
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let url = std::env::var("DEVNET_WS_URL").unwrap_or_else(|_| "ws://127.0.0.1:9944".to_string());
 	let local = url.starts_with("ws://127.0.0.1:") || url.starts_with("ws://localhost:");
-	let signer = if local {
-		sr25519::dev::alice()
-	} else {
-		let seed = std::env::var("MFC_RELAYER_SEED")
-			.map_err(|_| "MFC_RELAYER_SEED is required outside the development network")?;
+	let signer = if let Ok(seed) = std::env::var("MFC_RELAYER_SEED") {
 		let uri = SecretUri::from_str(&seed)?;
 		Keypair::from_uri(&uri)?
+	} else if local {
+		sr25519::dev::alice()
+	} else {
+		return Err("MFC_RELAYER_SEED is required outside the development network".into());
 	};
 	let queue_path = match std::env::var("MFC_RELAYER_QUEUE") {
 		Ok(path) => PathBuf::from(path),
@@ -174,8 +176,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			let block = http
 				.request::<serde_json::Value, _>("chain_getBlock", rpc_params![target_hash])
 				.await?;
-			let proof = justification_bytes(&block)
-				.map_err(|error| format!("Cannot release target {target}: {error}"))?;
+			let proof = match justification_bytes(&block) {
+				Ok(proof) => proof,
+				Err(_) if !queue.bootstrap_complete => {
+					println!("validator_relay_unfinalized_skipped=true target={target}");
+					queue.next_target += 1;
+					save_queue(&queue_path, &queue)?;
+					continue;
+				}
+				Err(error) => return Err(format!("Cannot release target {target}: {error}").into()),
+			};
+			queue.bootstrap_complete = true;
 			if queue.pending.len() >= MAX_PENDING {
 				return Err("Reward relayer queue is full".into());
 			}
