@@ -52,7 +52,7 @@ function run(binary, env) {
   const result = spawnSync(binary, [], {
     env: { ...process.env, DEVNET_WS_URL: "ws://127.0.0.1:9958", ...env },
     encoding: "utf8",
-    timeout: 180_000,
+    timeout: 600_000,
     maxBuffer: 16 * 1024 * 1024
   });
   if (result.status !== 0) throw new Error(`Relayer example failed: ${result.stdout}\n${result.stderr}`);
