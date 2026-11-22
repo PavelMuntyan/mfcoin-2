@@ -109,6 +109,10 @@ async fn submit_release(
 		.await;
 	if let Err(error) = result {
 		let obligation = reward(http, target).await?;
+		if obligation.is_null() {
+			println!("validator_relay_expired_skipped=true target={target}");
+			return Ok(());
+		}
 		if obligation["released"].is_null() {
 			return Err(format!("Release failed for target {target}: {error}").into());
 		}
@@ -151,6 +155,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	loop {
 		for index in 0..queue.pending.len() {
 			let pending = &queue.pending[index];
+			if reward(&http, pending.target).await?.is_null() {
+				println!("validator_relay_expired_skipped=true target={}", pending.target);
+				continue;
+			}
 			submit_release(&api, &http, &signer, pending.target, pending.proof.clone()).await?;
 		}
 		queue.pending.clear();

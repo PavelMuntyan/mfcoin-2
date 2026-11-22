@@ -122,6 +122,7 @@ pm2 stop mfc112-relayer-1 mfc112-relayer-2 >/dev/null 2>&1 || true
 bash "$ROOT/infra/testnet/register-payouts.sh"
 
 for index in 1 2; do
+  node "$ROOT/infra/testnet/prune-relayer-queue.mjs" "$DATA/relayer-$index-queue.json" 9951
   relayer_seed=$(json_field "$SECRETS/relayer-$index.json" secretPhrase)
   MFC_RELAYER_SEED="$relayer_seed" \
   MFC_RELAYER_QUEUE="$DATA/relayer-$index-queue.json" \
