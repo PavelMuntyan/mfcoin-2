@@ -4,7 +4,7 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 16: reward retention, authority-set history, measured dynamic weights and a durable reward relayer. No public testnet or mainnet reward activation has been performed.
+Contour 17: the fresh runtime-112 testnet is live with independently generated validator and payout keys, GRANDPA finality and native reward activation. Mainnet has not been launched.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
@@ -24,7 +24,7 @@ Each PoW `PreRuntime` digest carries `version=0 + AccountId32` for the public pa
 
 PoW and treasury obligations mature after 10 blocks. Validator obligations remain in separate storage until an on-chain release. `release_validator_reward` accepts the original encoded GRANDPA justification plus its exact signer and ancestry counts, checks those counts before verification, validates the canonical target, maturation, ancestry, authority membership, signatures and quorum, and rejects duplicates and understated weights. Only actual precommit signers share the target's 35% allocation.
 
-Weights were measured with compiled WASM over `1..32` signers and `0..64` ancestry headers. The generated formula charges actual counts and DB access instead of the maximum proof for every release. Benchmarks cover release, registration, claim and `on_finalize`; reference-hardware review is still required before public activation.
+Weights were measured with compiled WASM over `1..32` signers and `0..64` ancestry headers. The generated formula charges actual counts and DB access instead of the maximum proof for every release. Benchmarks cover release, registration, claim and `on_finalize`; reference-hardware review is still required before mainnet.
 
 Validator obligations and releases are pruned after 1,200 blocks, within the canonical hash window. Unclaimed credits are never pruned and carry their own `set_id`, so claims still work after obligation cleanup. Validator set history preserves the old set for transition-block rewards and activates the new set from the following block.
 
@@ -38,7 +38,7 @@ Read-only `mfc_rewardTotals`, `mfc_rewardObligation`, `mfc_validatorReward`, `mf
 
 `mfc_validatorEvidence(block_hash)` decodes the block's GRANDPA justification, checks the commit target, ancestry, authority set id and validator signatures, and returns actual precommit signers. Missing or invalid justifications are rejected. The native justification period defaults to 512; regression networks set `MFCOIN_GRANDPA_JUSTIFICATION_PERIOD=1` explicitly to retain every proof.
 
-The read-only endpoint is not trusted for payment. Release verification runs independently in runtime. `node/examples/reward_relayer.rs` polls mature obligations, writes each proof to an atomic bounded queue before submission, resumes pending work after restart and fails loudly instead of silently skipping missing evidence. During its first synchronization only, it advances past historically unfinalized blocks that have no justification; after recording the first available proof, later missing evidence remains a hard failure. It uses a separate fee-paying relayer key, never a validator key. Configure `MFC_RELAYER_SEED`, `MFC_RELAYER_QUEUE` and the activation-appropriate `MFC_RELAYER_START_TARGET`; the explicit seed also applies to local RPC endpoints. Redundant relayers are recommended. `node/examples/register_validator_payout.rs` signs registration on the operator host with `MFC_VALIDATOR_SEED`, an SS58 `MFC_VALIDATOR_PAYOUT`, `MFC_VALIDATOR_SET_ID` and the separate relayer key.
+The read-only endpoint is not trusted for payment. Release verification runs independently in runtime. `node/examples/reward_relayer.rs` polls mature obligations, writes each proof to an atomic bounded queue before submission, resumes pending work after restart and fails loudly instead of silently skipping missing evidence. During its first synchronization only, it advances past historically unfinalized blocks that have no justification; after recording the first available proof, later missing evidence remains a hard failure. Expired obligations are removed from pending work after a fresh canonical-state check. One-shot mode processes a fixed mature-head snapshot instead of chasing new blocks indefinitely. `MFC_RELAYER_END_TARGET` can additionally cap that snapshot for bounded batches and deterministic restart tests. It uses a separate fee-paying relayer key, never a validator key. Configure `MFC_RELAYER_SEED`, `MFC_RELAYER_QUEUE` and the activation-appropriate `MFC_RELAYER_START_TARGET`; the explicit seed also applies to local RPC endpoints. Redundant relayers are recommended. `node/examples/register_validator_payout.rs` signs registration on the operator host with `MFC_VALIDATOR_SEED`, an SS58 `MFC_VALIDATOR_PAYOUT`, `MFC_VALIDATOR_SET_ID` and the separate relayer key.
 
 `scripts/check-validator-rewards.mjs` covers direct release/claim/replay, while `scripts/check-reward-relayer.mjs` covers durable release, restart and duplicate safety.
 

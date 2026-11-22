@@ -143,6 +143,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.map(|value| value.parse::<u32>())
 		.transpose()?
 		.unwrap_or(1);
+	let end = std::env::var("MFC_RELAYER_END_TARGET")
+		.ok()
+		.map(|value| value.parse::<u32>())
+		.transpose()?;
 	let once = std::env::var("MFC_RELAYER_ONCE").unwrap_or_default() == "1";
 	let mut once_mature = None;
 	let api = OnlineClient::<PolkadotConfig>::from_insecure_url(&url).await?;
@@ -172,7 +176,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			header["number"].as_str().ok_or("Missing finalized number")?.trim_start_matches("0x"),
 			16,
 		)?;
-		let current_mature = finalized.saturating_sub(10);
+		let current_mature = end.map_or_else(
+			|| finalized.saturating_sub(10),
+			|target| target.min(finalized.saturating_sub(10)),
+		);
 		let mature = if once { *once_mature.get_or_insert(current_mature) } else { current_mature };
 		while queue.next_target <= mature {
 			let target = queue.next_target;

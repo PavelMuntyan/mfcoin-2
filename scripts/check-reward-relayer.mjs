@@ -92,7 +92,7 @@ try {
   assert.match(claim, /duplicate_release_rejected=true/);
   const registration = run(registerPayout, {});
   assert.match(registration, /validator_payout_registered=true/);
-  const second = run(relayer, relayerEnv);
+  const second = run(relayer, { ...relayerEnv, MFC_RELAYER_END_TARGET: "12" });
   assert.doesNotMatch(second, /Release failed/);
   queue = JSON.parse(await fs.readFile(queuePath, "utf8"));
   assert.equal(queue.pending.length, 0);
