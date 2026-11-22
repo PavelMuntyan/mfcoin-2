@@ -1,5 +1,5 @@
 use pallet_freeland_records::{FreelandRecord, RecordAction, RecordKind};
-use sc_service::ChainType;
+use sc_service::{ChainType, Properties};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use solochain_template_runtime::WASM_BINARY;
@@ -216,6 +216,11 @@ fn production_chain_spec_from_config(config: ProductionConfig) -> Result<ChainSp
 		WASM_BINARY.ok_or_else(|| "Production wasm not available".to_string())?,
 		None,
 	)
+	.with_properties(Properties::from_iter([
+		("ss58Format".to_string(), json!(42)),
+		("tokenDecimals".to_string(), json!(12)),
+		("tokenSymbol".to_string(), json!("MFC"))
+	]))
 	.with_name(&network.name)
 	.with_id(&network.id)
 	.with_chain_type(ChainType::Live)
@@ -358,7 +363,11 @@ mod tests {
 			treasury_account: Sr25519Keyring::Alice.to_account_id(),
 		});
 		assert_eq!(validate_production_config(&config), Ok(()));
-		assert!(production_chain_spec_from_config(config.clone()).is_ok());
+		let spec = production_chain_spec_from_config(config.clone()).expect("production spec builds");
+		let properties = spec.properties();
+		assert_eq!(properties["ss58Format"], json!(42));
+		assert_eq!(properties["tokenDecimals"], json!(12));
+		assert_eq!(properties["tokenSymbol"], json!("MFC"));
 		let mut inactive = config;
 		inactive.rewards.as_mut().expect("rewards are configured").activation_block = 0;
 		assert_eq!(
