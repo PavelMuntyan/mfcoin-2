@@ -79,12 +79,30 @@ pub fn local_chain_spec() -> Result<ChainSpec, String> {
 	.build())
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProductionNetwork {
+	name: String,
+	id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ProductionRewards {
+	activation_block: u32,
+	treasury_account: AccountId32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ProductionConfig {
 	validators: Vec<AccountId32>,
 	governance_signatories: Vec<AccountId32>,
 	endowed_accounts: Vec<(AccountId32, u128)>,
+	#[serde(default)]
+	network: Option<ProductionNetwork>,
+	#[serde(default)]
+	rewards: Option<ProductionRewards>,
 }
 
 fn validate_production_config(config: &ProductionConfig) -> Result<(), String> {
@@ -131,6 +149,29 @@ fn validate_production_config(config: &ProductionConfig) -> Result<(), String> {
 	{
 		return Err("Endowed accounts must be unique".to_string());
 	}
+	if let Some(network) = &config.network {
+		if network.name.trim().is_empty()
+			|| network.id.is_empty()
+			|| !network
+				.id
+				.bytes()
+				.all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+		{
+			return Err("Production network name and id must be explicit and safe".to_string());
+		}
+	}
+	if let Some(rewards) = &config.rewards {
+		if rewards.activation_block == 0 {
+			return Err("Reward activation must follow initial finality".to_string());
+		}
+		if !config
+			.endowed_accounts
+			.iter()
+			.any(|(account, _)| account == &rewards.treasury_account)
+		{
+			return Err("Reward treasury must be explicitly endowed".to_string());
+		}
+	}
 	Ok(())
 }
 
@@ -155,17 +196,28 @@ fn production_chain_spec_from_config(config: ProductionConfig) -> Result<ChainSp
 			2,
 		);
 	let authorities = production_authorities(&config.validators)?;
-	let genesis = json!({
+	let network = config.network.unwrap_or(ProductionNetwork {
+		name: "MFCoin 2.0".to_string(),
+		id: "mfcoin2".to_string(),
+	});
+	let mut genesis = json!({
 		"balances": { "balances": config.endowed_accounts },
 		"grandpa": { "authorities": authorities },
 		"freelandRecords": { "governanceAccount": governance_account },
 	});
+	if let Some(rewards) = config.rewards {
+		genesis["mfcRewards"] = json!({
+			"enabled": true,
+			"activationBlock": rewards.activation_block,
+			"treasuryAccount": rewards.treasury_account,
+		});
+	}
 	Ok(ChainSpec::builder(
 		WASM_BINARY.ok_or_else(|| "Production wasm not available".to_string())?,
 		None,
 	)
-	.with_name("MFCoin 2.0")
-	.with_id("mfcoin2")
+	.with_name(&network.name)
+	.with_id(&network.id)
 	.with_chain_type(ChainType::Live)
 	.with_genesis_config_patch(genesis)
 	.build())
@@ -201,6 +253,8 @@ mod tests {
 				(Sr25519Keyring::Alice.to_account_id(), 1_000_000_000_000),
 				(Sr25519Keyring::Bob.to_account_id(), 1_000_000_000_000),
 			],
+			network: None,
+			rewards: None,
 		}
 	}
 
@@ -289,6 +343,35 @@ mod tests {
 				[validators[0].to_string(), 1],
 				[validators[1].to_string(), 1]
 			])
+		);
+	}
+
+	#[test]
+	fn reward_testnet_requires_explicit_activation_and_treasury() {
+		let mut config = valid_config();
+		config.network = Some(ProductionNetwork {
+			name: "MFCoin Testnet 112".to_string(),
+			id: "mfcoin-testnet-112".to_string(),
+		});
+		config.rewards = Some(ProductionRewards {
+			activation_block: 12,
+			treasury_account: Sr25519Keyring::Alice.to_account_id(),
+		});
+		assert_eq!(validate_production_config(&config), Ok(()));
+		assert!(production_chain_spec_from_config(config.clone()).is_ok());
+		let mut inactive = config;
+		inactive.rewards.as_mut().expect("rewards are configured").activation_block = 0;
+		assert_eq!(
+			validate_production_config(&inactive),
+			Err("Reward activation must follow initial finality".to_string())
+		);
+		let mut external_treasury = inactive;
+		external_treasury.rewards.as_mut().expect("rewards are configured").activation_block = 12;
+		external_treasury.rewards.as_mut().expect("rewards are configured").treasury_account =
+			Sr25519Keyring::Charlie.to_account_id();
+		assert_eq!(
+			validate_production_config(&external_treasury),
+			Err("Reward treasury must be explicitly endowed".to_string())
 		);
 	}
 

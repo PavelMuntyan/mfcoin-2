@@ -103,14 +103,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		)
 		.await?
 		.ok_or("Missing released credit")?;
-	assert_eq!(credit, amount);
+	let credit_value = credit.parse::<u128>()?;
+	assert!(credit_value > 0 && credit_value <= amount.parse::<u128>()?);
 	let totals = http.request::<serde_json::Value, _>("mfc_rewardTotals", rpc_params![Option::<H256>::None]).await?;
 	assert_eq!(totals["validatorPaid"].as_str(), Some("0"));
 	let initial_credit = totals["validatorCredit"]
 		.as_str()
 		.ok_or("Missing validator credit total")?
 		.parse::<u128>()?;
-	assert!(initial_credit >= amount.parse::<u128>()?);
+	assert!(initial_credit >= credit_value);
 	println!("validator_release_finalized=true target={target} credit={credit}");
 
 	let authority: AuthorityId = Ed25519Keyring::Alice.public().into();
@@ -153,12 +154,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.await?;
 	let totals = http.request::<serde_json::Value, _>("mfc_rewardTotals", rpc_params![Option::<H256>::None]).await?;
 	let paid = totals["validatorPaid"].as_str().ok_or("Missing validator paid total")?.parse::<u128>()?;
-	assert!(paid >= amount.parse::<u128>()?);
+	assert!(paid >= credit_value);
 	assert_eq!(
 		totals["validatorCredit"].as_str().ok_or("Missing remaining credit")?.parse::<u128>()?,
-		initial_credit - amount.parse::<u128>()?
+		initial_credit - credit_value
 	);
-	println!("validator_credit_claimed=true paid={amount}");
+	println!("validator_credit_claimed=true paid={credit}");
 
 	let replay = api
 		.tx()

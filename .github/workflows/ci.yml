@@ -75,7 +75,8 @@ jobs:
           cargo +1.88.0 build --package solochain-template-node --release --examples
           node scripts/check-validator-rewards.mjs
           node scripts/check-reward-relayer.mjs
-        timeout-minutes: 8
+          node scripts/check-production-rewards.mjs
+        timeout-minutes: 12
 
       - name: Make sure the node is producing blocks
         run: |
