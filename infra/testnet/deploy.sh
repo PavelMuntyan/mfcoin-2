@@ -58,7 +58,7 @@ trap stop_bootstrap EXIT
 
 BOOTNODE=""
 for index in 1 2 3 4; do
-  rpc_port=$((9943 + index))
+  rpc_port=$((9949 + index))
   p2p_port=$((30332 + index))
   base="$DATA/validator-$index"
   mkdir -p "$base"
@@ -88,10 +88,9 @@ start_or_reload() {
   local script=$2
   shift 2
   if pm2 describe "$name" >/dev/null 2>&1; then
-    pm2 restart "$name" --update-env
-  else
-    pm2 start "$script" --name "$name" "$@"
+    pm2 delete "$name"
   fi
+  pm2 start "$script" --name "$name" "$@"
 }
 
 if pm2 describe solochain-template-node 2>/dev/null | grep -F "$ROOT/target/release/solochain-template-node" >/dev/null; then
@@ -100,7 +99,7 @@ fi
 
 export MFCOIN_GRANDPA_JUSTIFICATION_PERIOD=1
 for index in 1 2 3 4; do
-  rpc_port=$((9943 + index))
+  rpc_port=$((9949 + index))
   p2p_port=$((30332 + index))
   payout=$(json_field "$SECRETS/payout-$index.json" publicKey)
   args=(
@@ -120,11 +119,11 @@ for index in 1 2; do
   MFC_RELAYER_QUEUE="$DATA/relayer-$index-queue.json" \
   MFC_RELAYER_START_TARGET=100 \
   MFC_RELAYER_ONCE=0 \
-  DEVNET_WS_URL=ws://127.0.0.1:9945 \
+  DEVNET_WS_URL=ws://127.0.0.1:9951 \
     start_or_reload "mfc112-relayer-$index" "$BIN/examples/reward_relayer" --cwd "$ROOT" --time
 done
 
-MFCOIN_CHAIN_SPEC="$OPERATORS" MFCOIN_RPC_URL=http://127.0.0.1:9944 \
+MFCOIN_CHAIN_SPEC="$OPERATORS" MFCOIN_RPC_URL=http://127.0.0.1:9950 \
   pm2 restart mf-life-community --update-env
 pm2 save
 
