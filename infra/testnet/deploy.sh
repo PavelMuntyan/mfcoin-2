@@ -57,30 +57,35 @@ stop_bootstrap() {
 trap stop_bootstrap EXIT
 
 BOOTNODE=""
-for index in 1 2 3 4; do
-  rpc_port=$((9949 + index))
-  p2p_port=$((30332 + index))
-  base="$DATA/validator-$index"
-  mkdir -p "$base"
-  if [ ! -f "$base/chains/mfcoin-testnet-112/network/secret_ed25519" ]; then
-    "$NODE" key generate-node-key --base-path "$base" --chain "$RAW" >/dev/null
-  fi
-  "$NODE" --validator --chain "$RAW" --base-path "$base" \
-    --rpc-port "$rpc_port" --port "$p2p_port" --rpc-methods unsafe \
-    --no-mdns --no-prometheus --disable-pow-mining \
-    > "$DATA/validator-$index-bootstrap.log" 2>&1 &
-  BOOT_PIDS+=("$!")
-  wait_for_rpc "$rpc_port"
-  public_key=$(json_field "$SECRETS/validator-$index.json" publicKeyHex)
-  node "$ROOT/infra/testnet/insert-grandpa-key.mjs" "$SECRETS/validator-$index.json" "$rpc_port" "$public_key"
-  if [ "$index" -eq 1 ]; then
-    peer_id=$(rpc_result "$rpc_port" system_localPeerId)
-    BOOTNODE="/ip4/127.0.0.1/tcp/$p2p_port/p2p/$peer_id"
-  fi
-  kill -INT "${BOOT_PIDS[-1]}" 2>/dev/null || true
-  wait "${BOOT_PIDS[-1]}" 2>/dev/null || true
-  unset 'BOOT_PIDS[-1]'
-done
+if pm2 describe mfc112-validator-1 >/dev/null 2>&1; then
+  peer_id=$("$NODE" key inspect-node-key --file "$DATA/validator-1/chains/mfcoin-testnet-112/network/secret_ed25519")
+  BOOTNODE="/ip4/127.0.0.1/tcp/30333/p2p/$peer_id"
+else
+  for index in 1 2 3 4; do
+    rpc_port=$((9949 + index))
+    p2p_port=$((30332 + index))
+    base="$DATA/validator-$index"
+    mkdir -p "$base"
+    if [ ! -f "$base/chains/mfcoin-testnet-112/network/secret_ed25519" ]; then
+      "$NODE" key generate-node-key --base-path "$base" --chain "$RAW" >/dev/null
+    fi
+    "$NODE" --validator --chain "$RAW" --base-path "$base" \
+      --rpc-port "$rpc_port" --port "$p2p_port" --rpc-methods unsafe \
+      --no-mdns --no-prometheus --disable-pow-mining \
+      > "$DATA/validator-$index-bootstrap.log" 2>&1 &
+    BOOT_PIDS+=("$!")
+    wait_for_rpc "$rpc_port"
+    public_key=$(json_field "$SECRETS/validator-$index.json" publicKeyHex)
+    node "$ROOT/infra/testnet/insert-grandpa-key.mjs" "$SECRETS/validator-$index.json" "$rpc_port" "$public_key"
+    if [ "$index" -eq 1 ]; then
+      peer_id=$(rpc_result "$rpc_port" system_localPeerId)
+      BOOTNODE="/ip4/127.0.0.1/tcp/$p2p_port/p2p/$peer_id"
+    fi
+    kill -INT "${BOOT_PIDS[-1]}" 2>/dev/null || true
+    wait "${BOOT_PIDS[-1]}" 2>/dev/null || true
+    unset 'BOOT_PIDS[-1]'
+  done
+fi
 trap - EXIT
 
 start_or_reload() {
