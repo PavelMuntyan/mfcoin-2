@@ -12,6 +12,7 @@ jobs:
       - uses: ./.github/actions/ubuntu-dependencies
       - name: Build node and testnet operator tools
         run: |
+          export LIBCLANG_PATH="$(llvm-config --libdir)"
           cargo +1.88.0 build --locked --release
           cargo +1.88.0 build --locked --release --examples
         timeout-minutes: 90
