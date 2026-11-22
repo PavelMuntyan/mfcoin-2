@@ -9,10 +9,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/free-disk-space
-      - uses: ./.github/actions/ubuntu-dependencies
+      - name: Install Rust compilation prerequisites
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler llvm-dev libclang-dev clang
+          rustup toolchain install 1.88.0 --profile minimal --component rustfmt,clippy,rust-src --target wasm32-unknown-unknown
       - name: Build node and testnet operator tools
         run: |
-          export LIBCLANG_PATH="$(llvm-config --libdir)"
+          export LIBCLANG_PATH="$(dirname "$(find /usr/lib/llvm* -name 'libclang.so*' -print -quit)")"
           cargo +1.88.0 build --locked --release
           cargo +1.88.0 build --locked --release --examples
         timeout-minutes: 90
