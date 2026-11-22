@@ -110,7 +110,7 @@ for index in 1 2 3 4; do
   args=(
     --validator --chain "$RAW" --base-path "$DATA/validator-$index"
     --rpc-port "$rpc_port" --port "$p2p_port"
-    --no-mdns --no-prometheus --pow-payout-account "$payout"
+    --rpc-methods safe --rpc-cors "https://mf.life" --no-mdns --no-prometheus --pow-payout-account "$payout"
   )
   if [ "$index" -gt 1 ]; then
     args+=(--bootnodes "$BOOTNODE")
