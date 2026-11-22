@@ -62,7 +62,9 @@ for index in 1 2 3 4; do
   p2p_port=$((30332 + index))
   base="$DATA/validator-$index"
   mkdir -p "$base"
-  "$NODE" key generate-node-key --base-path "$base" --chain "$RAW" >/dev/null
+  if [ ! -f "$base/chains/mfcoin-testnet-112/network/secret_ed25519" ]; then
+    "$NODE" key generate-node-key --base-path "$base" --chain "$RAW" >/dev/null
+  fi
   "$NODE" --validator --chain "$RAW" --base-path "$base" \
     --rpc-port "$rpc_port" --port "$p2p_port" --rpc-methods unsafe \
     --no-mdns --no-prometheus --disable-pow-mining \
