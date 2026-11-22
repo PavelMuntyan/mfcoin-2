@@ -3,7 +3,8 @@ use frame_support::{
 	derive_impl,
 	traits::{ConstU32, ConstU64, VariantCountOf},
 };
-use sp_core::crypto::AccountId32;
+use sp_core::{crypto::AccountId32, Void};
+use sp_keyring::Ed25519Keyring;
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -33,6 +34,9 @@ mod runtime {
 
 	#[runtime::pallet_index(2)]
 	pub type MfcRewards = pallet_mfc_rewards::Pallet<Test>;
+
+	#[runtime::pallet_index(3)]
+	pub type Grandpa = pallet_grandpa::Pallet<Test>;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -60,10 +64,21 @@ impl pallet_balances::Config for Test {
 	type DoneSlashHandler = ();
 }
 
+impl pallet_grandpa::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type MaxAuthorities = ConstU32<32>;
+	type MaxNominators = ConstU32<0>;
+	type MaxSetIdSessionEntries = ConstU64<0>;
+	type KeyOwnerProof = Void;
+	type EquivocationReportSystem = ();
+}
+
 impl pallet_mfc_rewards::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RewardMaturation = ConstU64<2>;
+	type MaxEncodedEvidence = ConstU32<{ 256 * 1024 }>;
 }
 
 pub fn account(id: u64) -> AccountId32 {
@@ -76,6 +91,15 @@ pub fn new_test_ext(enabled: bool) -> sp_io::TestExternalities {
 	let mut storage = frame_system::GenesisConfig::<Test>::default()
 		.build_storage()
 		.unwrap();
+	pallet_grandpa::GenesisConfig::<Test> {
+		authorities: vec![
+			(Ed25519Keyring::Alice.public().into(), 1),
+			(Ed25519Keyring::Bob.public().into(), 1),
+		],
+		_config: Default::default(),
+	}
+	.assimilate_storage(&mut storage)
+	.unwrap();
 	pallet_mfc_rewards::GenesisConfig::<Test> {
 		enabled,
 		activation_block: 0,

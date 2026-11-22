@@ -369,6 +369,8 @@ impl_runtime_apis! {
 				scheduled: pallet_mfc_rewards::ScheduledTotal::<Runtime>::get(),
 				minted: pallet_mfc_rewards::MintedTotal::<Runtime>::get(),
 				validator_accrued: pallet_mfc_rewards::ValidatorAccrued::<Runtime>::get(),
+				validator_paid: pallet_mfc_rewards::ValidatorPaid::<Runtime>::get(),
+				validator_credit: pallet_mfc_rewards::ValidatorCreditTotal::<Runtime>::get(),
 				pow_paid: pallet_mfc_rewards::PowPaid::<Runtime>::get(),
 				treasury_paid: pallet_mfc_rewards::TreasuryPaid::<Runtime>::get(),
 			}
@@ -376,6 +378,26 @@ impl_runtime_apis! {
 
 		fn reward_obligation(block: u32) -> Option<RewardObligation<AccountId, Balance>> {
 			pallet_mfc_rewards::Obligations::<Runtime>::get(block)
+		}
+
+		fn validator_obligation(block: u32) -> Option<pallet_mfc_rewards::ValidatorObligation<Balance>> {
+			pallet_mfc_rewards::ValidatorObligations::<Runtime>::get(block)
+		}
+
+		fn validator_release(block: u32) -> Option<pallet_mfc_rewards::ValidatorRelease<Balance>> {
+			pallet_mfc_rewards::ValidatorReleases::<Runtime>::get(block)
+		}
+
+		fn validator_payout_nonce(set_id: u64, authority: sp_consensus_grandpa::AuthorityId) -> u64 {
+			pallet_mfc_rewards::ValidatorPayoutNonces::<Runtime>::get(set_id, authority)
+		}
+
+		fn validator_payout(set_id: u64, authority: sp_consensus_grandpa::AuthorityId) -> Option<AccountId> {
+			pallet_mfc_rewards::ValidatorPayouts::<Runtime>::get(set_id, authority)
+		}
+
+		fn validator_credit(block: u32, authority: sp_consensus_grandpa::AuthorityId) -> Option<Balance> {
+			pallet_mfc_rewards::ValidatorCredits::<Runtime>::get(block, authority)
 		}
 	}
 

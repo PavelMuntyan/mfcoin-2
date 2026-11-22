@@ -14,26 +14,35 @@ workspace = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+finality-grandpa.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
 pallet-balances.workspace = true
+pallet-grandpa.workspace = true
 scale-info.workspace = true
 sp-api.workspace = true
+sp-consensus-grandpa.workspace = true
 sp-core.workspace = true
+sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-sp-io.workspace = true
+sp-keyring.workspace = true
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
+	"finality-grandpa/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
+	"pallet-grandpa/std",
 	"scale-info/std",
 	"sp-api/std",
+	"sp-consensus-grandpa/std",
 	"sp-core/std",
+	"sp-io/std",
 	"sp-runtime/std",
+	"sp-keyring/std",
 ]

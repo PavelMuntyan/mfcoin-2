@@ -61,6 +61,7 @@ pallet-freeland-records = { path = "./pallets/freeland-records", default-feature
 pallet-mfc-rewards = { path = "./pallets/mfc-rewards", default-features = false }
 pallet-template = { path = "./pallets/template", default-features = false }
 clap = { version = "4.5.13" }
+finality-grandpa = { version = "0.16.3", default-features = false, features = ["derive-codec"] }
 frame-benchmarking-cli = { version = "53.0.0", default-features = false }
 frame-metadata-hash-extension = { version = "0.13.0", default-features = false }
 frame-system = { version = "45.0.0", default-features = false }

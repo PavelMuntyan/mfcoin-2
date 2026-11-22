@@ -238,6 +238,22 @@ pub trait MfcRewards {
 	#[method(name = "rewardObligation")]
 	fn reward_obligation(&self, block: u32, at: Option<H256>) -> RpcResult<Option<Value>>;
 
+	/// Return a validator obligation and its release status.
+	#[method(name = "validatorReward")]
+	fn validator_reward(&self, block: u32, at: Option<H256>) -> RpcResult<Option<Value>>;
+
+	/// Return an unclaimed validator credit.
+	#[method(name = "validatorCredit")]
+	fn validator_credit(&self, block: u32, authority: H256, at: Option<H256>) -> RpcResult<Option<String>>;
+
+	/// Return the next payout-registration nonce for a validator.
+	#[method(name = "validatorPayoutNonce")]
+	fn validator_payout_nonce(&self, set_id: u64, authority: H256, at: Option<H256>) -> RpcResult<String>;
+
+	/// Return a registered validator payout account.
+	#[method(name = "validatorPayout")]
+	fn validator_payout(&self, set_id: u64, authority: H256, at: Option<H256>) -> RpcResult<Option<AccountId>>;
+
 	/// Verify GRANDPA justification and return the actual precommit signers for a block.
 	#[method(name = "validatorEvidence")]
 	fn validator_evidence(&self, block_hash: H256) -> RpcResult<Value>;
@@ -265,6 +281,8 @@ where
 			"scheduled": totals.scheduled.to_string(),
 			"minted": totals.minted.to_string(),
 			"validatorAccrued": totals.validator_accrued.to_string(),
+			"validatorPaid": totals.validator_paid.to_string(),
+			"validatorCredit": totals.validator_credit.to_string(),
 			"powPaid": totals.pow_paid.to_string(),
 			"treasuryPaid": totals.treasury_paid.to_string(),
 		}))
@@ -291,6 +309,60 @@ where
 				"validatorAmount": validator_amount.to_string(),
 			})
 		}))
+	}
+
+	fn validator_reward(&self, block: u32, at: Option<H256>) -> RpcResult<Option<Value>> {
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+		let obligation = self
+			.client
+			.runtime_api()
+			.validator_obligation(at, block)
+			.map_err(runtime_error)?;
+		let release = self
+			.client
+			.runtime_api()
+			.validator_release(at, block)
+			.map_err(runtime_error)?;
+		Ok(obligation.map(|obligation| {
+			json!({
+				"amount": obligation.amount.to_string(),
+				"setId": obligation.set_id,
+				"released": release.map(|release| json!({
+					"round": release.round,
+					"setId": release.set_id,
+					"signers": release.signers,
+					"paid": release.paid.to_string(),
+					"credited": release.credited.to_string(),
+					"treasuryRemainder": release.treasury_remainder.to_string(),
+				})),
+			})
+		}))
+	}
+
+	fn validator_credit(&self, block: u32, authority: H256, at: Option<H256>) -> RpcResult<Option<String>> {
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+		self.client
+			.runtime_api()
+			.validator_credit(at, block, authority_id(authority))
+			.map(|credit| credit.map(|amount| amount.to_string()))
+			.map_err(runtime_error)
+	}
+
+	fn validator_payout_nonce(&self, set_id: u64, authority: H256, at: Option<H256>) -> RpcResult<String> {
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+		self.client
+			.runtime_api()
+			.validator_payout_nonce(at, set_id, authority_id(authority))
+			.map(|nonce| nonce.to_string())
+			.map_err(runtime_error)
+	}
+
+	fn validator_payout(&self, set_id: u64, authority: H256, at: Option<H256>) -> RpcResult<Option<AccountId>> {
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+		self.client
+			.runtime_api()
+			.validator_payout(at, set_id, authority_id(authority))
+			.map_err(runtime_error)
 	}
 
 	fn validator_evidence(&self, block_hash: H256) -> RpcResult<Value> {
@@ -321,6 +393,10 @@ where
 			"verified": true,
 		}))
 	}
+}
+
+fn authority_id(authority: H256) -> sp_consensus_grandpa::AuthorityId {
+	sp_core::ed25519::Public::from_raw(authority.0).into()
 }
 
 fn runtime_error(error: impl std::fmt::Display) -> ErrorObjectOwned {

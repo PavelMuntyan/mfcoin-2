@@ -6366,14 +6366,18 @@ dependencies = [
 name = "pallet-mfc-rewards"
 version = "0.1.0"
 dependencies = [
+ "finality-grandpa",
  "frame-support",
  "frame-system",
  "pallet-balances",
+ "pallet-grandpa",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
+ "sp-consensus-grandpa",
  "sp-core",
  "sp-io",
+ "sp-keyring",
  "sp-runtime",
 ]
 
