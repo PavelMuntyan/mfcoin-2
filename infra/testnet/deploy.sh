@@ -118,6 +118,9 @@ for index in 1 2 3 4; do
   start_or_reload "mfc112-validator-$index" "$NODE" --cwd "$ROOT" --time -- "${args[@]}"
 done
 
+pm2 stop mfc112-relayer-1 mfc112-relayer-2 >/dev/null 2>&1 || true
+bash "$ROOT/infra/testnet/register-payouts.sh"
+
 for index in 1 2; do
   relayer_seed=$(json_field "$SECRETS/relayer-$index.json" secretPhrase)
   MFC_RELAYER_SEED="$relayer_seed" \
@@ -127,8 +130,6 @@ for index in 1 2; do
   DEVNET_WS_URL=ws://127.0.0.1:9951 \
     start_or_reload "mfc112-relayer-$index" "$BIN/examples/reward_relayer" --cwd "$ROOT" --time
 done
-
-bash "$ROOT/infra/testnet/register-payouts.sh"
 
 MFCOIN_CHAIN_SPEC="$OPERATORS" MFCOIN_RPC_URL=http://127.0.0.1:9950 \
   pm2 restart mf-life-community --update-env
