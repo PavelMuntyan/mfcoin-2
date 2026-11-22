@@ -85,13 +85,18 @@ trap - EXIT
 
 start_or_reload() {
   local name=$1
-  shift
+  local script=$2
+  shift 2
   if pm2 describe "$name" >/dev/null 2>&1; then
     pm2 restart "$name" --update-env
   else
-    pm2 start "$@" --name "$name"
+    pm2 start "$script" --name "$name" "$@"
   fi
 }
+
+if pm2 describe solochain-template-node 2>/dev/null | grep -F "$ROOT/target/release/solochain-template-node" >/dev/null; then
+  pm2 delete solochain-template-node
+fi
 
 export MFCOIN_GRANDPA_JUSTIFICATION_PERIOD=1
 for index in 1 2 3 4; do
