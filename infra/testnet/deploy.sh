@@ -128,6 +128,8 @@ for index in 1 2; do
     start_or_reload "mfc112-relayer-$index" "$BIN/examples/reward_relayer" --cwd "$ROOT" --time
 done
 
+bash "$ROOT/infra/testnet/register-payouts.sh"
+
 MFCOIN_CHAIN_SPEC="$OPERATORS" MFCOIN_RPC_URL=http://127.0.0.1:9950 \
   pm2 restart mf-life-community --update-env
 pm2 save

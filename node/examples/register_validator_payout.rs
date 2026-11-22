@@ -10,24 +10,24 @@ use subxt_signer::{sr25519, SecretUri};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let url = std::env::var("DEVNET_WS_URL").unwrap_or_else(|_| "ws://127.0.0.1:9944".to_string());
 	let local = url.starts_with("ws://127.0.0.1:") || url.starts_with("ws://localhost:");
-	let (authority_pair, payout, relayer) = if local {
+	let (authority_pair, payout, relayer) = if let Ok(validator_seed) = std::env::var("MFC_VALIDATOR_SEED") {
+		let relayer_seed = std::env::var("MFC_RELAYER_SEED")
+			.map_err(|_| "MFC_RELAYER_SEED is required with MFC_VALIDATOR_SEED")?;
+		let payout = std::env::var("MFC_VALIDATOR_PAYOUT")
+			.map_err(|_| "MFC_VALIDATOR_PAYOUT is required with MFC_VALIDATOR_SEED")?;
+		(
+			ed25519::Pair::from_string(&validator_seed, None)?,
+			AccountId32::from_ss58check(&payout)?,
+			sr25519::Keypair::from_uri(&SecretUri::from_str(&relayer_seed)?)?,
+		)
+	} else if local {
 		(
 			ed25519::Pair::from_string("//Alice", None)?,
 			sr25519::dev::alice().public_key().0.into(),
 			sr25519::dev::alice(),
 		)
 	} else {
-		let validator_seed = std::env::var("MFC_VALIDATOR_SEED")
-			.map_err(|_| "MFC_VALIDATOR_SEED is required outside the development network")?;
-		let relayer_seed = std::env::var("MFC_RELAYER_SEED")
-			.map_err(|_| "MFC_RELAYER_SEED is required outside the development network")?;
-		let payout = std::env::var("MFC_VALIDATOR_PAYOUT")
-			.map_err(|_| "MFC_VALIDATOR_PAYOUT is required outside the development network")?;
-		(
-			ed25519::Pair::from_string(&validator_seed, None)?,
-			AccountId32::from_ss58check(&payout)?,
-			sr25519::Keypair::from_uri(&SecretUri::from_str(&relayer_seed)?)?,
-		)
+		return Err("MFC_VALIDATOR_SEED is required outside the development network".into());
 	};
 	let set_id = std::env::var("MFC_VALIDATOR_SET_ID")
 		.ok()
