@@ -76,7 +76,9 @@ jobs:
           node scripts/check-validator-rewards.mjs
           node scripts/check-reward-relayer.mjs
           node scripts/check-production-rewards.mjs
-        timeout-minutes: 12
+          MFC_TEST_DELAY_FINALITY=1 node scripts/check-production-rewards.mjs
+          node scripts/check-multinode.mjs
+        timeout-minutes: 18
 
       - name: Make sure the node is producing blocks
         run: |

@@ -8,6 +8,7 @@ const binary = path.resolve("target/release/solochain-template-node");
 const root = path.resolve(".devnet/production-rewards-v1");
 const raw = path.join(root, "chain-spec-raw.json");
 const children = new Set();
+const delayFinality = process.env.MFC_TEST_DELAY_FINALITY === "1";
 const env = {
   ...process.env,
   MFCOIN_PRODUCTION_CONFIG: path.resolve("production-rewards.example.json"),
@@ -45,7 +46,7 @@ async function waitFor(description, check, timeout = 120_000) {
   throw new Error(`Timed out: ${description}${lastError ? ` (${lastError.message})` : ""}`);
 }
 
-async function startNode(name, rpcPort, p2pPort, bootnodes = []) {
+async function startNode(name, rpcPort, p2pPort, bootnodes = [], disableGrandpa = false) {
   const basePath = path.join(root, name);
   await fs.mkdir(basePath, { recursive: true });
   const key = spawnSync(binary, ["key", "generate-node-key", "--base-path", basePath, "--chain", raw], {
@@ -67,6 +68,7 @@ async function startNode(name, rpcPort, p2pPort, bootnodes = []) {
     "--pow-payout-account", payoutAccounts[name],
     `--${name}`
   ];
+  if (disableGrandpa) args.push("--disable-grandpa");
   for (const bootnode of bootnodes) args.push("--bootnodes", bootnode);
   const log = createWriteStream(path.join(root, `${name}.log`), { flags: "a" });
   const child = spawn(binary, args, { env, stdio: ["ignore", "pipe", "pipe"] });
@@ -79,16 +81,20 @@ async function startNode(name, rpcPort, p2pPort, bootnodes = []) {
     log.end();
   });
   await waitFor(`${name} RPC`, () => rpc(rpcPort, "chain_getHeader"), 45_000);
+  return entry;
+}
+
+async function stopNode(entry) {
+  if (!children.has(entry)) return;
+  await new Promise(resolve => {
+    entry.child.once("exit", resolve);
+    entry.child.kill("SIGINT");
+    setTimeout(() => entry.child.kill("SIGKILL"), 20_000).unref();
+  });
 }
 
 async function stopAll() {
-  await Promise.all([...children].map(({ child, log }) => new Promise(resolve => {
-    if (child.exitCode !== null) return resolve();
-    child.once("exit", resolve);
-    child.kill("SIGINT");
-    setTimeout(() => child.kill("SIGKILL"), 20_000).unref();
-    log.end();
-  })));
+  await Promise.all([...children].map(stopNode));
 }
 
 function runExample(binary, environment = {}) {
@@ -125,8 +131,15 @@ try {
   assert.equal(runtime.mfcRewards.enabled, true);
   assert.equal(runtime.mfcRewards.activationBlock, 12);
 
-  await startNode("alice", 9960, 30440);
-  await waitFor("Alice PoW blocks", async () => Number((await rpc(9960, "chain_getHeader")).number) >= 2);
+  let alice = await startNode("alice", 9960, 30440, [], delayFinality);
+  await waitFor("Alice PoW blocks", async () => Number((await rpc(9960, "chain_getHeader")).number) >= (delayFinality ? 24 : 2));
+  if (delayFinality) {
+    const genesisHash = await rpc(9960, "chain_getBlockHash", [0]);
+    assert.equal(await rpc(9960, "chain_getFinalizedHead"), genesisHash);
+    await stopNode(alice);
+    alice = await startNode("alice", 9960, 30440);
+    assert.ok(alice);
+  }
   const peerId = await rpc(9960, "system_localPeerId");
   await startNode("bob", 9961, 30441, [`/ip4/127.0.0.1/tcp/30440/p2p/${peerId}`]);
   await waitFor("mature two-validator finality", async () => {
@@ -141,6 +154,7 @@ try {
     MFC_RELAYER_QUEUE: path.join(root, "queue.json")
   });
   assert.match(relayer, /validator_relay_finalized=true/);
+  if (delayFinality) assert.match(relayer, /validator_relay_unfinalized_skipped=true/);
   const claim = runExample(path.resolve("target/release/examples/validator_rewards"));
   assert.match(claim, /validator_credit_claimed=true/);
   assert.match(claim, /duplicate_release_rejected=true/);
