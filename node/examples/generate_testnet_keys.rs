@@ -2,6 +2,14 @@ use serde_json::json;
 use sp_core::{crypto::AccountId32, ed25519, sr25519, Pair};
 use std::path::{Path, PathBuf};
 
+fn account_hex(account: &AccountId32) -> String {
+	let mut encoded = String::from("0x");
+	for byte in AsRef::<[u8]>::as_ref(account) {
+		encoded.push_str(&format!("{byte:02x}"));
+	}
+	encoded
+}
+
 fn write_secret(
 	directory: &Path,
 	name: &str,
@@ -14,6 +22,7 @@ fn write_secret(
 		"cryptography": crypto,
 		"secretPhrase": secret_phrase,
 		"publicKey": public,
+		"publicKeyHex": account_hex(public),
 	});
 	let mut options = std::fs::OpenOptions::new();
 	options.write(true).create_new(true);

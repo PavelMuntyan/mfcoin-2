@@ -21,12 +21,13 @@ jobs:
           cargo +1.88.0 build --locked --release --examples
         timeout-minutes: 90
       - name: Package Ubuntu artifacts
-        run: tar -czf mfc112-artifacts.tar.gz \
-          target/release/solochain-template-node \
-          target/release/examples/generate_testnet_keys \
-          target/release/examples/reward_relayer \
-          target/release/examples/register_validator_payout \
-          target/release/examples/validator_rewards
+        run: |
+          tar -czf mfc112-artifacts.tar.gz \
+            target/release/solochain-template-node \
+            target/release/examples/generate_testnet_keys \
+            target/release/examples/reward_relayer \
+            target/release/examples/register_validator_payout \
+            target/release/examples/validator_rewards
       - uses: actions/upload-artifact@v4
         with:
           name: mfc112-artifacts

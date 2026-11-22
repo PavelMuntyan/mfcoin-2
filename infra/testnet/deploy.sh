@@ -69,7 +69,7 @@ for index in 1 2 3 4; do
     > "$DATA/validator-$index-bootstrap.log" 2>&1 &
   BOOT_PIDS+=("$!")
   wait_for_rpc "$rpc_port"
-  public_key=$(json_field "$SECRETS/validator-$index.json" publicKey)
+  public_key=$(json_field "$SECRETS/validator-$index.json" publicKeyHex)
   node "$ROOT/infra/testnet/insert-grandpa-key.mjs" "$SECRETS/validator-$index.json" "$rpc_port" "$public_key"
   if [ "$index" -eq 1 ]; then
     peer_id=$(rpc_result "$rpc_port" system_localPeerId)
