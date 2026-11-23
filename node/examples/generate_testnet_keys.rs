@@ -94,8 +94,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.collect::<Vec<_>>();
 	let operators = json!({
 		"network": {
-			"name": "MFCoin Testnet 113",
-			"id": "mfcoin-testnet-113"
+			"name": "MFCoin Testnet 114",
+			"id": "mfcoin-testnet-114"
 		},
 		"rewards": {
 			"activationBlock": 100,

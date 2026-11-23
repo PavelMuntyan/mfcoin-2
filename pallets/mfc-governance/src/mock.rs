@@ -52,7 +52,6 @@ impl pallet_grandpa::Config for Test {
 }
 
 impl pallet_mfc_governance::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type MinimumDelay = ConstU64<10>;
 }
 

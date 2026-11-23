@@ -356,8 +356,8 @@ mod tests {
 	fn reward_testnet_requires_explicit_activation_and_treasury() {
 		let mut config = valid_config();
 		config.network = Some(ProductionNetwork {
-			name: "MFCoin Testnet 113".to_string(),
-			id: "mfcoin-testnet-113".to_string(),
+			name: "MFCoin Testnet 114".to_string(),
+			id: "mfcoin-testnet-114".to_string(),
 		});
 		config.rewards = Some(ProductionRewards {
 			activation_block: 12,

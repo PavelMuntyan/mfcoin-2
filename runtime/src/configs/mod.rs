@@ -29,12 +29,13 @@ use frame_support::{
 	traits::{ConstU128, ConstU32, ConstU64, ConstU8, VariantCountOf},
 	weights::{
 		constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
-		IdentityFee, Weight,
+		ConstantMultiplier, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+		WeightToFeePolynomial,
 	},
 };
 use frame_system::limits::{BlockLength, BlockWeights};
-use pallet_transaction_payment::{ConstFeeMultiplier, FungibleAdapter, Multiplier};
-use sp_runtime::{traits::One, Perbill};
+use pallet_transaction_payment::{FungibleAdapter, Multiplier, TargetedFeeAdjustment};
+use sp_runtime::{traits::One, FixedPointNumber, Perbill, Perquintill};
 use sp_version::RuntimeVersion;
 
 // Local module imports
@@ -135,17 +136,41 @@ impl pallet_balances::Config for Runtime {
 	type DoneSlashHandler = ();
 }
 
+pub struct MfcWeightToFee;
+
+impl WeightToFeePolynomial for MfcWeightToFee {
+	type Balance = Balance;
+
+	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		WeightToFeeCoefficients::from(&[WeightToFeeCoefficient {
+			coeff_integer: 0,
+			coeff_frac: Perbill::from_percent(1),
+			negative: false,
+			degree: 1,
+		}][..])
+	}
+}
+
 parameter_types! {
-	pub FeeMultiplier: Multiplier = Multiplier::one();
+	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
+	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 10_000);
+	pub MinimumMultiplier: Multiplier = Multiplier::one();
+	pub MaximumMultiplier: Multiplier = Multiplier::saturating_from_integer(100);
 }
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = FungibleAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
-	type WeightToFee = IdentityFee<Balance>;
-	type LengthToFee = IdentityFee<Balance>;
-	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+	type WeightToFee = MfcWeightToFee;
+	type LengthToFee = ConstantMultiplier<Balance, ConstU128<{ 10 * MICRO_UNIT }>>;
+	type FeeMultiplierUpdate = TargetedFeeAdjustment<
+		Self,
+		TargetBlockFullness,
+		AdjustmentVariable,
+		MinimumMultiplier,
+		MaximumMultiplier
+	>;
 	type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Runtime>;
 }
 
@@ -177,6 +202,54 @@ impl pallet_multisig::Config for Runtime {
 }
 
 impl pallet_mfc_governance::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type MinimumDelay = ConstU32<20>;
+}
+
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::UNIT;
+	use sp_runtime::traits::{Convert, One};
+
+	#[test]
+	fn weight_fee_is_one_percent_of_ref_time() {
+		assert_eq!(
+			pallet_transaction_payment::Pallet::<Runtime>::weight_to_fee(Weight::from_parts(
+				WEIGHT_REF_TIME_PER_SECOND,
+				0,
+			)),
+			10_000 * MICRO_UNIT
+		);
+	}
+
+	#[test]
+	fn large_payload_has_meaningful_length_fee() {
+		let spam_fee = pallet_transaction_payment::Pallet::<Runtime>::length_to_fee(
+			3 * 1024 * 1024,
+		);
+
+		assert_eq!(spam_fee, 3 * 1024 * 1024 * 10 * MICRO_UNIT);
+		assert!(spam_fee > 30 * UNIT);
+		assert!(pallet_transaction_payment::Pallet::<Runtime>::length_to_fee(200) < UNIT);
+	}
+
+	#[test]
+	fn congestion_multiplier_responds_to_full_blocks() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			let initial = Multiplier::one();
+
+			assert_eq!(<Runtime as pallet_transaction_payment::Config>::FeeMultiplierUpdate::convert(initial), initial);
+
+			System::set_block_consumed_resources(
+				Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
+				5 * 1024 * 1024,
+			);
+
+			let adjusted = <Runtime as pallet_transaction_payment::Config>::FeeMultiplierUpdate::convert(initial);
+
+			assert!(adjusted > initial);
+			assert!(adjusted <= MaximumMultiplier::get());
+		});
+	}
 }
