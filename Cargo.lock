@@ -10199,7 +10199,6 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "pallet-freeland-records",
- "pallet-mfc-governance",
  "pallet-mfc-rewards",
  "pallet-multisig",
  "pallet-staking",

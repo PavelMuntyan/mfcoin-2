@@ -71,7 +71,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     .unwrap();
     pallet_mfc_governance::GenesisConfig::<Test> {
         governance_account: Some(AccountId32::new([1; 32])),
-        ..Default::default()
     }
     .assimilate_storage(&mut storage)
     .unwrap();
