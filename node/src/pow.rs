@@ -1,7 +1,6 @@
 use crate::service::FullClient;
-use sc_client_api::HeaderBackend;
 use sc_consensus_pow::{Error, PowAlgorithm, PowAux};
-use solochain_template_runtime::opaque::Block;
+use solochain_template_runtime::{opaque::Block, MILLI_SECS_PER_BLOCK};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus_pow::TimestampApi;
 use sp_core::U256;
@@ -67,7 +66,7 @@ impl Sha256Algorithm {
                 if aux.difficulty.is_zero() {
                     Ok(U256::MAX / 25_000)
                 } else {
-                    Ok(aux.difficulty)
+                    Ok(work_to_target(aux.difficulty))
                 }
             }
         }));
@@ -92,6 +91,20 @@ impl Sha256Algorithm {
     }
 }
 
+fn target_to_work(target: U256) -> U256 {
+    if target.is_zero() {
+        return U256::MAX;
+    }
+    U256::MAX / target
+}
+
+fn work_to_target(work: U256) -> U256 {
+    if work.is_zero() {
+        return U256::zero();
+    }
+    U256::MAX / work
+}
+
 impl PowAlgorithm<Block> for Sha256Algorithm {
     type Difficulty = U256;
 
@@ -101,22 +114,27 @@ impl PowAlgorithm<Block> for Sha256Algorithm {
             None => self.target,
         };
         let Some(client) = &self.client else {
-            return Ok(current);
+            return Ok(target_to_work(current));
         };
-        let header = client
+        let mut ancestor_header = client
             .header(parent)
             .map_err(|error| Error::Other(error.to_string()))?
             .ok_or(Error::NoBestHeader)?;
-        let number = *header.number();
+        let number = *ancestor_header.number();
         if number < self.window || number % self.window != 0 {
-            return Ok(current);
+            return Ok(target_to_work(current));
         }
-        let ancestor = client
-            .hash(number - self.window)
-            .map_err(|error| Error::Other(error.to_string()))?
-            .ok_or(Error::NoBestHeader)?;
-        let elapsed = self.timestamp(parent)?.saturating_sub(self.timestamp(ancestor)?);
-        Ok(retarget(current, elapsed, self.window))
+        for _ in 0..self.window {
+            let ancestor = *ancestor_header.parent_hash();
+            ancestor_header = client
+                .header(ancestor)
+                .map_err(|error| Error::Other(error.to_string()))?
+                .ok_or(Error::NoBestHeader)?;
+        }
+        let elapsed = self
+            .timestamp(parent)?
+            .saturating_sub(self.timestamp(ancestor_header.hash())?);
+        Ok(target_to_work(retarget(current, elapsed, self.window)))
     }
 
     fn verify(
@@ -130,7 +148,7 @@ impl PowAlgorithm<Block> for Sha256Algorithm {
         let mut payload = pre_hash.as_bytes().to_vec();
         payload.extend_from_slice(seal);
         let hash = sp_crypto_hashing::sha2_256(&payload);
-        Ok(U256::from_big_endian(&hash) <= difficulty)
+        Ok(U256::from_big_endian(&hash) <= work_to_target(difficulty))
     }
 }
 
@@ -138,21 +156,22 @@ fn retarget(current: U256, elapsed: u64, window: u32) -> U256 {
     if elapsed == 0 {
         return current;
     }
-    let expected = u64::from(window) * 3_000;
-    let next = current.saturating_mul(U256::from(expected)) / U256::from(elapsed);
+    let expected = u64::from(window) * MILLI_SECS_PER_BLOCK;
+    let next = current.saturating_mul(U256::from(elapsed)) / U256::from(expected);
     let minimum = current.saturating_mul(U256::from(3)) / U256::from(4);
     let maximum = current.saturating_mul(U256::from(5)) / U256::from(4);
     next.max(minimum).min(maximum)
 }
 
 pub fn find_seal(pre_hash: &BlockHash, difficulty: U256) -> Vec<u8> {
+    let target = work_to_target(difficulty);
     let mut nonce = 0u64;
     loop {
         let seal = nonce.to_le_bytes().to_vec();
         let mut payload = pre_hash.as_bytes().to_vec();
         payload.extend_from_slice(&seal);
         let hash = sp_crypto_hashing::sha2_256(&payload);
-        if U256::from_big_endian(&hash) <= difficulty {
+        if U256::from_big_endian(&hash) <= target {
             return seal;
         }
         nonce = nonce.wrapping_add(1);
@@ -169,12 +188,12 @@ mod tests {
         let parent = BlockId::Hash(Default::default());
         let pre_hash = Default::default();
         assert!(algorithm
-            .verify(&parent, &pre_hash, None, &vec![0], U256::MAX)
+            .verify(&parent, &pre_hash, None, &vec![0], target_to_work(U256::MAX))
             .unwrap());
     }
 
     #[test]
-    fn rejects_seal_when_target_is_zero() {
+    fn rejects_seal_when_work_is_zero() {
         let algorithm = Sha256Algorithm::default();
         let parent = BlockId::Hash(Default::default());
         let pre_hash = Default::default();
@@ -186,7 +205,7 @@ mod tests {
     #[test]
     fn finds_valid_seal() {
         let pre_hash = Default::default();
-        let difficulty = U256::MAX / 25_000;
+        let difficulty = target_to_work(U256::MAX / 25_000);
         let seal = find_seal(&pre_hash, difficulty);
         let algorithm = Sha256Algorithm::default();
         let parent = BlockId::Hash(Default::default());
@@ -196,13 +215,52 @@ mod tests {
     }
 
     #[test]
-    fn retargets_by_runtime_time() {
-        assert_eq!(retarget(U256::from(1_000), 150_000, 60), U256::from(1_200));
-        assert_eq!(retarget(U256::from(1_000), 225_000, 60), U256::from(800));
-        assert_eq!(retarget(U256::from(1_000), 90_000, 60), U256::from(1_250));
-        assert_eq!(retarget(U256::from(1_000), 360_000, 60), U256::from(750));
-        assert_eq!(retarget(U256::from(1_000), 1, 60), U256::from(1_250));
-        assert_eq!(retarget(U256::from(1_000), 10_000, 60), U256::from(1_250));
+    fn difficulty_returns_work_for_the_consensus_engine() {
+        let algorithm = Sha256Algorithm::default();
+        let work = algorithm.difficulty(Default::default()).unwrap();
+        assert_eq!(work, target_to_work(U256::MAX / 25_000));
+        assert!(work_to_target(work) > U256::zero());
+    }
+
+    #[test]
+    fn harder_targets_contribute_more_work_to_fork_choice() {
+        let easy_target = U256::from(1_000);
+        let hard_target = U256::from(500);
+        assert!(target_to_work(hard_target) > target_to_work(easy_target));
+
+        let easy_chain_work = target_to_work(easy_target).saturating_mul(U256::from(2));
+        let hard_chain_work = target_to_work(hard_target).saturating_mul(U256::from(2));
+        assert!(hard_chain_work > easy_chain_work);
+    }
+
+    #[test]
+    fn retargets_towards_the_runtime_block_interval() {
+        assert_eq!(retarget(U256::from(1_000), 150_000, 60), U256::from(750));
+        assert_eq!(retarget(U256::from(1_000), 225_000, 60), U256::from(750));
+        assert_eq!(retarget(U256::from(1_000), 90_000, 60), U256::from(750));
+        assert_eq!(retarget(U256::from(1_000), 360_000, 60), U256::from(1_000));
+        assert_eq!(retarget(U256::from(1_000), 480_000, 60), U256::from(1_250));
+        assert_eq!(retarget(U256::from(1_000), 1, 60), U256::from(750));
+        assert_eq!(retarget(U256::from(1_000), 10_000, 60), U256::from(750));
         assert_eq!(retarget(U256::from(1_000), 0, 60), U256::from(1_000));
+
+        assert!(retarget(U256::from(1_000), 480_000, 60) > U256::from(1_000));
+        assert!(retarget(U256::from(1_000), 240_000, 60) < U256::from(1_000));
+    }
+
+    #[test]
+    fn retarget_converges_with_constant_hashrate() {
+        let window = 60;
+        let expected = u64::from(window) * MILLI_SECS_PER_BLOCK;
+        let target_block_interval = 1_000_000u64;
+        let mut target = U256::from(1_000);
+
+        for _ in 0..80 {
+            let elapsed = target_block_interval.saturating_mul(expected) / target.as_u64();
+            target = retarget(target, elapsed, window);
+        }
+
+        assert!(target > U256::from(990_000));
+        assert!(target < U256::from(1_010_000));
     }
 }

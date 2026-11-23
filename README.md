@@ -137,6 +137,10 @@ node scripts/check-devnet.mjs
 
 The check confirms block production and finality, requires PoW and Freeland digests, and compares the RPC info root with the digest.
 
+## PoW work and retarget
+
+`PowAux.difficulty` stores proof of work as `U256::MAX / target`; it does not store the hash target itself. Fork choice therefore accumulates more work for harder blocks. Seal verification converts that work back to a target with `U256::MAX / work`. Every 60 blocks, the node computes `next_target = current_target * elapsed / (60 * 6000)` and clamps the change to ±25%. Slow blocks make the target easier, fast blocks make it harder. The retarget ancestor is found by following `parent_hash` links through the actual fork, not by reading a block number from the canonical chain. Nodes built before this model was introduced cannot be mixed with the old testnet database: use a coordinated fresh devnet or an explicitly planned reset and native-client upgrade.
+
 ## Benchmarks and multi-node checks
 
 ```sh
