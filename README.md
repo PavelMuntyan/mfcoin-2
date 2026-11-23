@@ -10,11 +10,13 @@ The current workspace is based on the standalone Polkadot SDK Solochain Template
 
 The project is being built incrementally: base node and GRANDPA finality first, then an isolated PoW authoring contour, Freeland records, rewards and public testnet. AuxPoW, EVM and ZK features are intentionally deferred until the base network is proven.
 
-Runtime `spec_version` is `112`. Sudo, the template pallet and Aura have been removed from the runtime; GRANDPA is the only session key. Issuer changes have no root or development-account bypass and still require on-chain multisig approval followed by the timelock. Development accounts remain in the dev/local presets and the explicitly non-production example configuration.
+Runtime `spec_version` is `113`. Sudo, the template pallet and Aura have been removed from the runtime; GRANDPA is the only session key. Issuer changes have no root or development-account bypass and still require on-chain multisig approval followed by the timelock. Development accounts remain in the dev/local presets and the explicitly non-production example configuration.
 
-The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 3-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration.
+The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 6-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration.
 
-Verified: 51 workspace tests, 21 reward tests with benchmarks, 7 JavaScript address-codec tests, 3 indexer tests and both clippy configurations pass. The isolated production-candidate example finalized block 40, executed its multisig/timelocked issuer change and finalized a synthetic passport record with a verified 256-sibling registry proof. The multi-node regression separately confirmed finality loss/recovery, canonical reorg handling and `orphaned` indexer history.
+Verified: 62 workspace tests, 21 reward tests with benchmarks, 7 JavaScript address-codec tests, 3 indexer tests and both clippy configurations pass. The isolated production-candidate example finalized block 40, executed its multisig/timelocked issuer change and finalized a synthetic passport record with a verified 256-sibling registry proof. The multi-node regression separately confirmed finality loss/recovery, canonical reorg handling and `orphaned` indexer history.
+
+`pallet-mfc-governance` provides a restricted upgrade path without an admin key. The existing 2-of-3 governance multisig signs proposals with a future `execute_at`; anyone may execute a proposal only after that block, and execution removes it to prevent replay. `set_code` stores the complete runtime WASM in the proposal, `note_stalled` uses the native GRANDPA recovery call, and `rotate_grandpa` uses the native `schedule_change` transition rather than direct authority-storage writes. Governance-account rotation uses the same timelock. Mock-chain tests cover unauthorized signatures, early execution, duplicate/replay protection, runtime-code replacement, authority rotation and governance-key rotation. No scheduler, preimage or sudo pallet is required.
 
 ## Native reward ledger
 
@@ -30,7 +32,7 @@ Validator obligations and releases are pruned after 1,200 blocks, within the can
 
 A GRANDPA Ed25519 public key is not treated as a spendable Sr25519 account. Validators register a payout account with an Ed25519 signature over a domain-separated payload containing genesis hash, set id, authority, payout and a replay-protected nonce. If no payout is registered, the share becomes an unclaimed credit and is not minted until `claim_validator_credit`.
 
-No storage migration from runtime 111 is offered. Start a fresh runtime-112 development/test chain. Existing public networks receive no retroactive obligations. Independent security review is required before mainnet.
+No storage migration from runtime 112 is offered. Start a fresh runtime-113 development/test chain. Existing public networks receive no retroactive obligations. Independent security review is required before mainnet.
 
 Read-only `mfc_rewardTotals`, `mfc_rewardObligation`, `mfc_validatorReward`, `mfc_validatorCredit`, `mfc_validatorPayout` and `mfc_validatorPayoutNonce` expose accounting for independent verification. Amounts and nonces are strings where JavaScript precision could be lost.
 

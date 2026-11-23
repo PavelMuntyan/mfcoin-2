@@ -175,3 +175,8 @@ impl pallet_multisig::Config for Runtime {
 	type MaxSignatories = ConstU32<16>;
 	type WeightInfo = ();
 }
+
+impl pallet_mfc_governance::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MinimumDelay = ConstU32<20>;
+}

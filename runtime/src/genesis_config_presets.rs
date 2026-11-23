@@ -46,6 +46,10 @@ fn testnet_genesis(initial_authorities: Vec<GrandpaId>, endowed_accounts: Vec<Ac
 				.map(|x| (x.clone(), 1))
 				.collect::<Vec<_>>(),
 		},
+		mfc_governance: pallet_mfc_governance::GenesisConfig {
+			governance_account: Some(governance_account.clone()),
+			..Default::default()
+		},
 		freeland_records: pallet_freeland_records::GenesisConfig {
 			records: vec![],
 			governance_account: Some(governance_account),

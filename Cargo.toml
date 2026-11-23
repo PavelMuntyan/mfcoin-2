@@ -9,6 +9,7 @@ edition = "2021"
 members = [
     "node",
     "pallets/freeland-records",
+    "pallets/mfc-governance",
     "pallets/mfc-rewards",
     "pallets/template",
     "primitives/address",
@@ -110,6 +111,7 @@ frame-system-rpc-runtime-api = { version = "40.0.0", default-features = false }
 frame-try-runtime = { version = "0.51.0", default-features = false }
 pallet-balances = { version = "46.0.0", default-features = false }
 pallet-grandpa = { version = "45.0.0", default-features = false }
+pallet-mfc-governance = { path = "./pallets/mfc-governance", default-features = false }
 pallet-multisig = { version = "45.0.0", default-features = false }
 pallet-staking = { version = "45.0.0", default-features = false }
 pallet-timestamp = { version = "44.0.0", default-features = false }

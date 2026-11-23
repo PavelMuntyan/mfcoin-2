@@ -29,6 +29,7 @@ pallet-balances.workspace = true
 pallet-freeland-records.workspace = true
 pallet-mfc-rewards.workspace = true
 pallet-grandpa.workspace = true
+pallet-mfc-governance.workspace = true
 pallet-multisig.workspace = true
 pallet-timestamp.workspace = true
 pallet-transaction-payment.workspace = true
@@ -69,6 +70,7 @@ std = [
 	"pallet-freeland-records/std",
 	"pallet-mfc-rewards/std",
 	"pallet-grandpa/std",
+	"pallet-mfc-governance/std",
 	"pallet-multisig/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",

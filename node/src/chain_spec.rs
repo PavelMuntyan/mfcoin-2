@@ -203,6 +203,7 @@ fn production_chain_spec_from_config(config: ProductionConfig) -> Result<ChainSp
 	let mut genesis = json!({
 		"balances": { "balances": config.endowed_accounts },
 		"grandpa": { "authorities": authorities },
+		"mfcGovernance": { "governanceAccount": governance_account.clone() },
 		"freelandRecords": { "governanceAccount": governance_account },
 	});
 	if let Some(rewards) = config.rewards {
@@ -355,8 +356,8 @@ mod tests {
 	fn reward_testnet_requires_explicit_activation_and_treasury() {
 		let mut config = valid_config();
 		config.network = Some(ProductionNetwork {
-			name: "MFCoin Testnet 112".to_string(),
-			id: "mfcoin-testnet-112".to_string(),
+			name: "MFCoin Testnet 113".to_string(),
+			id: "mfcoin-testnet-113".to_string(),
 		});
 		config.rewards = Some(ProductionRewards {
 			activation_block: 12,
