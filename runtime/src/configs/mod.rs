@@ -42,7 +42,7 @@ use sp_version::RuntimeVersion;
 use super::{
 	AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce, PalletInfo, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask,
-	System, EXISTENTIAL_DEPOSIT, MICRO_UNIT, SLOT_DURATION, UNIT, VERSION,
+	System, DAYS, EXISTENTIAL_DEPOSIT, MICRO_UNIT, SLOT_DURATION, UNIT, VERSION,
 };
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -203,6 +203,7 @@ impl pallet_freeland_records::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxRecordsPerBlock = ConstU32<64>;
 	type GovernanceDelay = ConstU32<20>;
+	type GovernanceAccount = pallet_mfc_governance::RuntimeGovernanceAccount<Runtime>;
 	type WeightInfo = pallet_freeland_records::weights::SubstrateWeight<Runtime>;
 }
 
@@ -227,7 +228,12 @@ impl pallet_multisig::Config for Runtime {
 }
 
 impl pallet_mfc_governance::Config for Runtime {
-	type MinimumDelay = ConstU32<20>;
+	type SetCodeDelay = ConstU32<{ 2 * DAYS }>;
+	type NoteStalledDelay = ConstU32<20>;
+	type RotateGrandpaDelay = ConstU32<{ 2 * DAYS }>;
+	type SetGovernanceAccountDelay = ConstU32<{ 2 * DAYS }>;
+	type ExecutionWindow = ConstU32<{ DAYS / 4 }>;
+	type MaxScheduleAhead = ConstU32<{ 7 * DAYS }>;
 }
 
 

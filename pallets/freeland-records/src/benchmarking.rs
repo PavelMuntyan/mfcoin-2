@@ -11,14 +11,14 @@ fn benchmark_hash(value: u64) -> H256 {
 	H256::from_slice(&bytes)
 }
 
-#[benchmarks]
+#[benchmarks(where T: pallet_mfc_governance::Config)]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
 	fn set_issuer() {
 		let issuer: T::AccountId = whitelisted_caller();
-		GovernanceAccount::<T>::set(Some(issuer.clone()));
+		pallet_mfc_governance::GovernanceAccount::<T>::set(Some(issuer.clone()));
 		frame_system::Pallet::<T>::set_block_number(1u32.into());
 		#[extrinsic_call]
 		set_issuer(RawOrigin::Signed(issuer.clone()), RecordKind::Passport, issuer.clone(), true);

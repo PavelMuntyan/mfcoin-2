@@ -20,6 +20,8 @@ codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+pallet-grandpa.workspace = true
+pallet-mfc-governance.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 serde.workspace = true
 sp-api.workspace = true
@@ -39,6 +41,8 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-grandpa/std",
+	"pallet-mfc-governance/std",
 	"scale-info/std",
 	"serde/std",
 	"sp-api/std",

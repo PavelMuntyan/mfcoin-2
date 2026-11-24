@@ -4,25 +4,25 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 18: the fresh Testnet 115 runs runtime 116 with independently generated validator and payout keys, GRANDPA finality, native rewards, governance upgrades and community assets. Mainnet has not been launched.
+Contour 18: the fresh Testnet 115 runs runtime 117 with independently generated validator and payout keys, GRANDPA finality, native rewards, governance upgrades and community assets. Mainnet has not been launched.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
 The project is being built incrementally: base node and GRANDPA finality first, then an isolated PoW authoring contour, Freeland records, rewards and public testnet. AuxPoW, EVM and ZK features are intentionally deferred until the base network is proven.
 
-Runtime `spec_version` is `116`. Sudo, the template pallet and Aura have been removed from the runtime; GRANDPA is the only session key. Issuer changes have no root or development-account bypass and still require on-chain multisig approval followed by the timelock. Development accounts remain in the dev/local presets and the explicitly non-production example configuration.
+Runtime `spec_version` is `117`. Sudo, the template pallet and Aura have been removed from the runtime; GRANDPA is the only session key. Issuer changes have no root or development-account bypass and still require on-chain multisig approval followed by the timelock. Development accounts remain in the dev/local presets and the explicitly non-production example configuration.
 
 The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 6-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration.
 
-Verified: 62 workspace tests, 21 reward tests with benchmarks, 7 JavaScript address-codec tests, 3 indexer tests and both clippy configurations pass. The isolated production-candidate example finalized block 40, executed its multisig/timelocked issuer change and finalized a synthetic passport record with a verified 256-sibling registry proof. The multi-node regression separately confirmed finality loss/recovery, canonical reorg handling and `orphaned` indexer history.
+Verified: 74 workspace tests, 21 reward tests with benchmarks, 7 JavaScript address-codec tests, 3 indexer tests and both clippy configurations pass. The isolated production-candidate example finalized block 40, executed its multisig/timelocked issuer change and finalized a synthetic passport record with a verified 256-sibling registry proof. The multi-node regression separately confirmed finality loss/recovery, canonical reorg handling and `orphaned` indexer history.
 
-`pallet-mfc-governance` provides a restricted upgrade path without an admin key. The existing 2-of-3 governance multisig signs proposals with a future `execute_at`; anyone may execute a proposal only after that block, and execution removes it to prevent replay. `set_code` stores the complete runtime WASM in the proposal, `note_stalled` uses the native GRANDPA recovery call, and `rotate_grandpa` uses the native `schedule_change` transition rather than direct authority-storage writes. Governance-account rotation uses the same timelock. Mock-chain tests cover unauthorized signatures, early execution, duplicate/replay protection, runtime-code replacement, authority rotation and governance-key rotation. No scheduler, preimage or sudo pallet is required.
+`pallet-mfc-governance` provides a restricted upgrade path without an admin key. The existing 2-of-3 governance multisig signs proposals with a future `execute_at`; anyone may execute a proposal only within a six-hour execution window, and execution removes it to prevent replay. Governance can cancel pending proposals. Runtime upgrades and rotations require a two-day timelock, cannot be scheduled more than seven days ahead, and expire six hours after `execute_at`, while `note_stalled` retains the short recovery delay. Every proposal carries a governance epoch, so stale proposals cannot execute after governance rotation. `set_code` stores at most 3,000,000 bytes of runtime WASM with size-aware weights, `note_stalled` uses the native GRANDPA recovery call, and `rotate_grandpa` uses native `schedule_change` with a bounded non-empty authority list. Freeland issuer governance reads the same account. Mock-chain tests cover unauthorized signatures, early execution, cancel, expiry, stale epochs, oversized inputs, runtime-code replacement, authority rotation and governance-key rotation.
 
 Runtime 114 replaces identity fees with a 1% weight coefficient and `10 * MICRO_UNIT` per byte. `TargetedFeeAdjustment` targets 25% normal-block fullness, varies the multiplier by `1/10000`, and clamps it between 1x and 100x. A 3 MiB payload costs more than 30 MFC before congestion adjustment; the 200-byte length fee remains below one MFC. Tests cover exact weight/length amounts and the multiplier response to a full block.
 
 ## Native community assets
 
-Runtime 116 uses the audited `pallet_assets` for user-issued native tokens. Any signed account can create an asset by reserving 100 MFC; metadata reserves a separate base plus per-byte deposit. The runtime supports metadata, issuer-controlled mint and burn, transfers, approvals, freezing and the standard multi-step destruction flow. Asset IDs start at 1 and increase through `AutoIncAssetId`; an explicit wrong ID is rejected. There is no EVM or custom token pallet.
+Runtime 117 uses the audited `pallet_assets` for user-issued native tokens. Any signed account can create an asset by reserving 100 MFC; metadata reserves a separate base plus per-byte deposit. The runtime supports metadata, issuer-controlled mint and burn, transfers, approvals, freezing and the standard multi-step destruction flow. Asset IDs start at 1 and increase through `AutoIncAssetId`; an explicit wrong ID is rejected. There is no EVM or custom token pallet.
 
 `scripts/check-assets.mjs` verifies creation, metadata, mint, transfer, burn, automatic IDs, supply and both account balances against a fresh running devnet.
 
@@ -40,7 +40,7 @@ Validator obligations and releases are pruned after 1,200 blocks, within the can
 
 A GRANDPA Ed25519 public key is not treated as a spendable Sr25519 account. Validators register a payout account with an Ed25519 signature over a domain-separated payload containing genesis hash, set id, authority, payout and a replay-protected nonce. If no payout is registered, the share becomes an unclaimed credit and is not minted until `claim_validator_credit`.
 
-Runtime 114 offered no reward-storage migration from runtime 112; existing public networks received no retroactive obligations. Runtime 116 adds the asset pallet, initializes its next ID when absent and sets it to 1 in production genesis. Independent security review is required before mainnet.
+Runtime 114 offered no reward-storage migration from runtime 112; existing public networks received no retroactive obligations. Runtime 117 adds the asset pallet, initializes its next ID when absent and sets it to 1 in production genesis. Independent security review is required before mainnet.
 
 Read-only `mfc_rewardTotals`, `mfc_rewardObligation`, `mfc_validatorReward`, `mfc_validatorCredit`, `mfc_validatorPayout` and `mfc_validatorPayoutNonce` expose accounting for independent verification. Amounts and nonces are strings where JavaScript precision could be lost.
 
@@ -72,7 +72,7 @@ Run the JavaScript tests with `cd packages/address && npm test`, and the Rust te
 `--chain production` fails closed unless `MFCOIN_PRODUCTION_CONFIG` points to an explicit operator configuration. The JSON must contain:
 
 - unique GRANDPA **Ed25519** validator public keys (not the Sr25519 transaction account IDs);
-- between 2 and 16 governance signatories, unique and sorted by `AccountId` (the current threshold is 2-of-N);
+- between 2 and 16 governance signatories, unique and sorted by `AccountId`, with an optional `governanceThreshold` of at least two thirds (default `ceil(2N/3)`);
 - unique endowed accounts with positive balances for transaction fees and multisig deposits.
 
 Unknown JSON fields are rejected. No private keys or seeds belong in this file.
@@ -149,7 +149,7 @@ The check confirms block production and finality, requires PoW and Freeland dige
 
 ## PoW work and retarget
 
-`PowAux.difficulty` stores proof of work as `U256::MAX / target`; it does not store the hash target itself. Fork choice therefore accumulates more work for harder blocks. Seal verification converts that work back to a target with `U256::MAX / work`. Every 60 blocks, the node computes `next_target = current_target * elapsed / (60 * 6000)` and clamps the change to ±25%. Slow blocks make the target easier, fast blocks make it harder. The retarget ancestor is found by following `parent_hash` links through the actual fork, not by reading a block number from the canonical chain. Nodes built before this model was introduced cannot be mixed with the old testnet database: use a coordinated fresh devnet or an explicitly planned reset and native-client upgrade.
+`PowAux.difficulty` stores proof of work as `U256::MAX / target`; it does not store the hash target itself. Fork choice therefore accumulates more work for harder blocks. Seal verification converts that work back to a target with `U256::MAX / work`. Every 60 blocks, the node computes `next_target = current_target * elapsed / (60 * 6000)` and clamps the change to ±25%. Slow blocks make the target easier, fast blocks make it harder. The retarget ancestor is found by following `parent_hash` links through the actual fork, not by reading a block number from the canonical chain. Warp sync is disabled for this PoW contour, and missing auxiliary difficulty after genesis is a hard import error instead of a silent reset to the initial target. Nodes built before this model was introduced cannot be mixed with the old testnet database: use a coordinated fresh devnet or an explicitly planned reset and native-client upgrade.
 
 ## Benchmarks and multi-node checks
 

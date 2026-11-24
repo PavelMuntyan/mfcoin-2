@@ -52,7 +52,12 @@ impl pallet_grandpa::Config for Test {
 }
 
 impl pallet_mfc_governance::Config for Test {
-    type MinimumDelay = ConstU64<10>;
+    type SetCodeDelay = ConstU64<10>;
+    type NoteStalledDelay = ConstU64<2>;
+    type RotateGrandpaDelay = ConstU64<10>;
+    type SetGovernanceAccountDelay = ConstU64<10>;
+    type ExecutionWindow = ConstU64<20>;
+    type MaxScheduleAhead = ConstU64<40>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

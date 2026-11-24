@@ -6327,6 +6327,8 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-grandpa",
+ "pallet-mfc-governance",
  "parity-scale-codec",
  "scale-info",
  "serde",

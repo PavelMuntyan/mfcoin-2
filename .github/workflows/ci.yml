@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   pull_request:
   push:
@@ -18,7 +21,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - if: contains(matrix.os, 'ubuntu')
         uses: ./.github/actions/free-disk-space
@@ -51,7 +54,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - if: contains(matrix.os, 'ubuntu')
         uses: ./.github/actions/free-disk-space
@@ -91,12 +94,12 @@ jobs:
   build-docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - uses: ./.github/actions/free-disk-space
 
       - name: Build the Dockerfile
-        run: docker build . -t polkadot-sdk-solochain-template
+        run: docker build --platform=linux/amd64 . -t polkadot-sdk-solochain-template
         timeout-minutes: 90
 
 
@@ -119,8 +122,8 @@ jobs:
     env:
       DATABASE_URL: postgres://mfcoin_indexer:indexer_dev_only@127.0.0.1:55432/mfcoin_indexer_dev
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 20
           cache: npm

@@ -56,15 +56,24 @@ impl Default for Sha256Algorithm {
     }
 }
 
+fn missing_aux_target(block_number: u32) -> Option<U256> {
+    (block_number == 0).then(|| U256::MAX / 25_000)
+}
+
 impl Sha256Algorithm {
     pub fn new(client: Arc<FullClient>) -> Self {
         let mut algorithm = Self::default();
         algorithm.difficulty_reader = Some(Arc::new({
             let client = client.clone();
             move |parent| {
+                let header = client
+                    .header(parent)
+                    .map_err(|error| Error::Other(error.to_string()))?
+                    .ok_or(Error::NoBestHeader)?;
                 let aux: PowAux<U256> = PowAux::read::<_, Block>(client.as_ref(), &parent)?;
                 if aux.difficulty.is_zero() {
-                    Ok(U256::MAX / 25_000)
+                    missing_aux_target(*header.number())
+                        .ok_or_else(|| Error::Other("Missing PoW auxiliary difficulty after genesis".to_string()))
                 } else {
                     Ok(work_to_target(aux.difficulty))
                 }
@@ -220,6 +229,13 @@ mod tests {
         let work = algorithm.difficulty(Default::default()).unwrap();
         assert_eq!(work, target_to_work(U256::MAX / 25_000));
         assert!(work_to_target(work) > U256::zero());
+    }
+
+    #[test]
+    fn missing_aux_is_allowed_only_at_genesis() {
+        assert_eq!(missing_aux_target(0), Some(U256::MAX / 25_000));
+        assert_eq!(missing_aux_target(1), None);
+        assert_eq!(missing_aux_target(60), None);
     }
 
     #[test]

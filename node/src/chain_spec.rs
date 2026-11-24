@@ -98,11 +98,25 @@ struct ProductionRewards {
 struct ProductionConfig {
 	validators: Vec<AccountId32>,
 	governance_signatories: Vec<AccountId32>,
+	#[serde(default)]
+	governance_threshold: Option<u16>,
 	endowed_accounts: Vec<(AccountId32, u128)>,
 	#[serde(default)]
 	network: Option<ProductionNetwork>,
 	#[serde(default)]
 	rewards: Option<ProductionRewards>,
+}
+
+fn governance_threshold(config: &ProductionConfig) -> Result<u16, String> {
+	let count = config.governance_signatories.len();
+	let threshold = config.governance_threshold.unwrap_or_else(|| (2 * count).div_ceil(3) as u16);
+	if usize::from(threshold) < 2
+		|| usize::from(threshold) > count
+		|| usize::from(threshold) * 3 < 2 * count
+	{
+		return Err("Governance threshold must be between two thirds and all signatories".to_string());
+	}
+	Ok(threshold)
 }
 
 fn validate_production_config(config: &ProductionConfig) -> Result<(), String> {
@@ -130,6 +144,7 @@ fn validate_production_config(config: &ProductionConfig) -> Result<(), String> {
 	{
 		return Err("Governance signatories must be unique and sorted by AccountId".to_string());
 	}
+	governance_threshold(config)?;
 	if config.endowed_accounts.is_empty() {
 		return Err("Production requires endowed accounts for fees".to_string());
 	}
@@ -193,7 +208,7 @@ fn production_chain_spec_from_config(config: ProductionConfig) -> Result<ChainSp
 	let governance_account =
 		pallet_multisig::Pallet::<solochain_template_runtime::Runtime>::multi_account_id(
 			&config.governance_signatories,
-			2,
+			governance_threshold(&config)?,
 		);
 	let authorities = production_authorities(&config.validators)?;
 	let network = config.network.unwrap_or(ProductionNetwork {
@@ -256,6 +271,7 @@ mod tests {
 				Sr25519Keyring::Charlie.to_account_id(),
 				Sr25519Keyring::Alice.to_account_id(),
 			],
+			governance_threshold: None,
 			endowed_accounts: vec![
 				(Sr25519Keyring::Alice.to_account_id(), 1_000_000_000_000),
 				(Sr25519Keyring::Bob.to_account_id(), 1_000_000_000_000),
@@ -351,6 +367,23 @@ mod tests {
 				[validators[1].to_string(), 1]
 			])
 		);
+	}
+
+	#[test]
+	fn governance_threshold_requires_two_thirds() {
+		let signatories = (1..=16).map(|value| AccountId32::new([value; 32])).collect::<Vec<_>>();
+		let config = ProductionConfig {
+			governance_signatories: signatories.clone(),
+			..valid_config()
+		};
+		assert_eq!(governance_threshold(&config), Ok(11));
+		assert_eq!(validate_production_config(&config), Ok(()));
+		let weak = ProductionConfig {
+			governance_signatories: signatories,
+			governance_threshold: Some(2),
+			..valid_config()
+		};
+		assert!(validate_production_config(&weak).is_err());
 	}
 
 	#[test]

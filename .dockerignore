@@ -1,0 +1,11 @@
+.git
+.github
+.devnet
+.testnet-secrets
+target
+node_modules
+indexer/node_modules
+.env
+.env.*
+*.log
+.DS_Store

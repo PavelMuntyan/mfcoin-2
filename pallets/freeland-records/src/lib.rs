@@ -242,6 +242,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type MaxRecordsPerBlock: Get<u32>;
 		type GovernanceDelay: Get<u32>;
+		type GovernanceAccount: Get<Option<Self::AccountId>>;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -284,12 +285,6 @@ pub mod pallet {
 				})
 				.expect("genesis registry key must be unique");
 			}
-			if let Some(account) = &self.governance_account {
-				GovernanceAccount::<T>::set(Some(
-					T::AccountId::decode(&mut &account.encode()[..])
-						.expect("genesis governance account uses the runtime account encoding"),
-				));
-			}
 			assert_eq!(RegistryLeaves::<T>::iter().count(), self.records.len(), "duplicate genesis registry key");
 			TotalRecords::<T>::set(self.records.len() as u64);
 		}
@@ -305,9 +300,6 @@ pub mod pallet {
 		bool,
 		ValueQuery,
 	>;
-
-	#[pallet::storage]
-	pub type GovernanceAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::storage]
 	pub type PendingIssuerChanges<T: Config> =
@@ -466,7 +458,7 @@ pub mod pallet {
 			allowed: bool,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(GovernanceAccount::<T>::get() == Some(who), Error::<T>::UnauthorizedGovernance);
+			ensure!(T::GovernanceAccount::get() == Some(who), Error::<T>::UnauthorizedGovernance);
 			let execute_at = frame_system::Pallet::<T>::block_number()
 				.saturating_add(T::GovernanceDelay::get().saturated_into())
 				.saturated_into::<u32>();

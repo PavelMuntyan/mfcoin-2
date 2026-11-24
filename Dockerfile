@@ -1,4 +1,4 @@
-FROM docker.io/paritytech/ci-unified:latest as builder
+FROM docker.io/paritytech/ci-unified@sha256:e2b580514e943dd979e08bc69943f51515dab1eceef2c9ad2fddffe364aa1377 AS builder
 
 WORKDIR /polkadot
 COPY . /polkadot
@@ -6,7 +6,7 @@ COPY . /polkadot
 RUN cargo fetch
 RUN cargo build --locked --release
 
-FROM docker.io/parity/base-bin:latest
+FROM docker.io/parity/base-bin@sha256:2391554e30053b07d0c22127df137b66e48282c201ec8e1e4634e3ffd29ec6fd
 
 COPY --from=builder /polkadot/target/release/solochain-template-node /usr/local/bin
 

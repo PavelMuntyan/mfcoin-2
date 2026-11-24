@@ -14,7 +14,7 @@ await api.isReady;
 
 try {
   assert.equal(api.genesisHash.toHex(), expectedGenesis, "RPC genesis mismatch");
-  assert.equal((await api.rpc.state.getRuntimeVersion()).specVersion.toNumber(), Number(process.env.MFCOIN_TARGET_SPEC_VERSION || 115));
+  assert.equal((await api.rpc.state.getRuntimeVersion()).specVersion.toNumber(), Number(process.env.MFCOIN_TARGET_SPEC_VERSION || 117));
   const keyring = new Keyring({ ss58Format: 42, type: "sr25519" });
   const owner = keyring.addFromUri(JSON.parse(await readFile(files[0], "utf8")).secretPhrase);
   const recipient = keyring.addFromUri(JSON.parse(await readFile(files[1], "utf8")).secretPhrase);
