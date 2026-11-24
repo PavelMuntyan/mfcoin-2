@@ -60,6 +60,9 @@ fn testnet_genesis(initial_authorities: Vec<GrandpaId>, endowed_accounts: Vec<Ac
 			activation_block: 0,
 			treasury_account: Some(Sr25519Keyring::Charlie.to_account_id()),
 		},
+		assets: pallet_assets::GenesisConfig {
+			next_asset_id: Some(1),
+		},
 	})
 }
 

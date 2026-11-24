@@ -42,7 +42,7 @@ use sp_version::RuntimeVersion;
 use super::{
 	AccountId, Balance, Balances, Block, BlockNumber, Hash, Nonce, PalletInfo, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask,
-	System, EXISTENTIAL_DEPOSIT, MICRO_UNIT, SLOT_DURATION, VERSION,
+	System, EXISTENTIAL_DEPOSIT, MICRO_UNIT, SLOT_DURATION, UNIT, VERSION,
 };
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -64,7 +64,9 @@ parameter_types! {
 ///
 /// This can be a tuple of types, each implementing `OnRuntimeUpgrade`.
 #[allow(unused_parens)]
-type SingleBlockMigrations = ();
+type SingleBlockMigrations = (
+	pallet_assets::migration::next_asset_id::SetNextAssetId<ConstU32<1>, Runtime>,
+);
 
 /// The default types are being injected by [`derive_impl`](`frame_support::derive_impl`) from
 /// [`SoloChainDefaultConfig`](`struct@frame_system::config_preludes::SolochainDefaultConfig`),
@@ -134,6 +136,29 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type DoneSlashHandler = ();
+}
+
+impl pallet_assets::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type RemoveItemsLimit = ConstU32<100>;
+	type AssetId = u32;
+	type AssetIdParameter = u32;
+	type ReserveData = ();
+	type Currency = Balances;
+	type CreateOrigin = frame_system::EnsureSigned<AccountId>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type AssetDeposit = ConstU128<{ 100 * UNIT }>;
+	type AssetAccountDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
+	type MetadataDepositBase = ConstU128<{ 10 * EXISTENTIAL_DEPOSIT }>;
+	type MetadataDepositPerByte = ConstU128<{ 100 * MICRO_UNIT }>;
+	type ApprovalDeposit = ConstU128<EXISTENTIAL_DEPOSIT>;
+	type StringLimit = ConstU32<64>;
+	type Freezer = ();
+	type Holder = ();
+	type Extra = ();
+	type CallbackHandle = pallet_assets::AutoIncAssetId<Runtime>;
+	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
 pub struct MfcWeightToFee;
