@@ -205,6 +205,7 @@ fn production_chain_spec_from_config(config: ProductionConfig) -> Result<ChainSp
 		"grandpa": { "authorities": authorities },
 		"mfcGovernance": { "governanceAccount": governance_account.clone() },
 		"freelandRecords": { "governanceAccount": governance_account },
+		"assets": { "nextAssetId": 1 },
 	});
 	if let Some(rewards) = config.rewards {
 		genesis["mfcRewards"] = json!({

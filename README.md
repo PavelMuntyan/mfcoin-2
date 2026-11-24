@@ -4,13 +4,13 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 17: the fresh runtime-112 testnet is live with independently generated validator and payout keys, GRANDPA finality and native reward activation. Mainnet has not been launched.
+Contour 18: the fresh Testnet 115 runs runtime 116 with independently generated validator and payout keys, GRANDPA finality, native rewards, governance upgrades and community assets. Mainnet has not been launched.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
 The project is being built incrementally: base node and GRANDPA finality first, then an isolated PoW authoring contour, Freeland records, rewards and public testnet. AuxPoW, EVM and ZK features are intentionally deferred until the base network is proven.
 
-Runtime `spec_version` is `115`. Sudo, the template pallet and Aura have been removed from the runtime; GRANDPA is the only session key. Issuer changes have no root or development-account bypass and still require on-chain multisig approval followed by the timelock. Development accounts remain in the dev/local presets and the explicitly non-production example configuration.
+Runtime `spec_version` is `116`. Sudo, the template pallet and Aura have been removed from the runtime; GRANDPA is the only session key. Issuer changes have no root or development-account bypass and still require on-chain multisig approval followed by the timelock. Development accounts remain in the dev/local presets and the explicitly non-production example configuration.
 
 The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 6-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration.
 
@@ -22,7 +22,7 @@ Runtime 114 replaces identity fees with a 1% weight coefficient and `10 * MICRO_
 
 ## Native community assets
 
-Runtime 115 uses the audited `pallet_assets` for user-issued native tokens. Any signed account can create an asset by reserving 100 MFC; metadata reserves a separate base plus per-byte deposit. The runtime supports metadata, issuer-controlled mint and burn, transfers, approvals, freezing and the standard multi-step destruction flow. Asset IDs start at 1 and increase through `AutoIncAssetId`; an explicit wrong ID is rejected. There is no EVM or custom token pallet.
+Runtime 116 uses the audited `pallet_assets` for user-issued native tokens. Any signed account can create an asset by reserving 100 MFC; metadata reserves a separate base plus per-byte deposit. The runtime supports metadata, issuer-controlled mint and burn, transfers, approvals, freezing and the standard multi-step destruction flow. Asset IDs start at 1 and increase through `AutoIncAssetId`; an explicit wrong ID is rejected. There is no EVM or custom token pallet.
 
 `scripts/check-assets.mjs` verifies creation, metadata, mint, transfer, burn, automatic IDs, supply and both account balances against a fresh running devnet.
 
@@ -40,7 +40,7 @@ Validator obligations and releases are pruned after 1,200 blocks, within the can
 
 A GRANDPA Ed25519 public key is not treated as a spendable Sr25519 account. Validators register a payout account with an Ed25519 signature over a domain-separated payload containing genesis hash, set id, authority, payout and a replay-protected nonce. If no payout is registered, the share becomes an unclaimed credit and is not minted until `claim_validator_credit`.
 
-Runtime 114 offered no reward-storage migration from runtime 112; existing public networks received no retroactive obligations. Runtime 115 adds only the asset pallet and initializes its next ID when absent. Independent security review is required before mainnet.
+Runtime 114 offered no reward-storage migration from runtime 112; existing public networks received no retroactive obligations. Runtime 116 adds the asset pallet, initializes its next ID when absent and sets it to 1 in production genesis. Independent security review is required before mainnet.
 
 Read-only `mfc_rewardTotals`, `mfc_rewardObligation`, `mfc_validatorReward`, `mfc_validatorCredit`, `mfc_validatorPayout` and `mfc_validatorPayoutNonce` expose accounting for independent verification. Amounts and nonces are strings where JavaScript precision could be lost.
 

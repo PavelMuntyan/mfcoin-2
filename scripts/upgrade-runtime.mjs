@@ -104,7 +104,7 @@ await upgraded.isReady;
 try {
   assert.equal(upgraded.genesisHash.toHex(), expectedGenesis);
   const runtime = await upgraded.rpc.state.getRuntimeVersion();
-  assert.equal(runtime.specVersion.toNumber(), 115);
+  assert.equal(runtime.specVersion.toNumber(), Number(process.env.MFCOIN_TARGET_SPEC_VERSION || 115));
   const nextAssetId = await upgraded.query.assets.nextAssetId();
   assert.ok(nextAssetId.isSome);
   assert.equal(nextAssetId.unwrap().toNumber(), 1);
