@@ -119,6 +119,7 @@ The info root is deposited as an `MFCF` digest during `on_finalize`. `governance
 
 ## Public verification documents
 
+- [Handoff for an AI user assistant](docs/AI_HANDOFF.md)
 - [Security review summary](docs/AUDIT.md)
 - [Vulnerability reporting policy](SECURITY.md)
 - [Reproducible build verification](docs/REPRODUCIBLE-BUILDS.md)
