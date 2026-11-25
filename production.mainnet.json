@@ -5,22 +5,22 @@
   },
   "rewards": {
     "activationBlock": 100,
-    "treasuryAccount": "5FZHi2bfKTJCGhGSZ4xh71ne3fJNKx97hkhAzauF6jJbBpth"
+    "treasuryAccount": "5C5ddNuSDBjjuVvs4vgZ72i7uVfyaMQQiyJtkJoELUdJ9QRY"
   },
   "validators": [
-    "5ChKjd8rt5QkNyR59jigjsEdi8TKRTaimXVd7KXHWu6iPoXj",
-    "5CBA6bb4hu6KH7Mmj2UTxNLTM5WyMp1EZGV2qKSpANXMCCJS",
-    "5EcYMTVgweHfN2CUFHNGCJzEXnPjuNrtfbCxd5xGVC4Mjo6e",
-    "5HfrC9kpHqDrMLrwHt8FCwkDP3wVR3JJ6b6mftWzPY38jCLQ"
+    "5G2fGugPvymnYgoSCFtjmN9U2TaXHnvNFAzUERW7TFW26wC9",
+    "5CLVcMv6ybymdaedxo92mh6ZeEeYb46oSwvQmipkP6Niaepk",
+    "5H5oSBsnCwRGKsFeM2tv9aM1WVFvrTGn77fvCK5a9arVxkdt",
+    "5DjdW7iCrrFVSFjVm7o2zg7uvXtfQFdM5iQY7QfdNFJyGBDq"
   ],
   "governanceSignatories": [
-    "5Eo9eALbi7LxRQVkZFRBgWNtn2bJQcPmi4kEcjB5Hf6vPJnT",
-    "5GFF7dTAScfx2x5ZMW1tzg8FeqrpeNcLRPugX5CmGFDENvjc",
-    "5GpbDuChKjkhBWVVrXP7MzB8TPgMfKyzM5QcEkrA1H7sgxgj"
+    "5D51cmeGH6Wqw3k7kqmYNGBMhvADWdGJmTia7T5fUbH2H4Yz",
+    "5EqjAzVyu465QYw4QPrZ1kJx6rDSLdjQD2ZA7rcPADqJqaLd",
+    "5H3zEYtiqWMqJjN3nCouZaZ8DjzSVxijJvMLLSy1nbVWm9rg"
   ],
   "endowedAccounts": [
     [
-      "5FZHi2bfKTJCGhGSZ4xh71ne3fJNKx97hkhAzauF6jJbBpth",
+      "5C5ddNuSDBjjuVvs4vgZ72i7uVfyaMQQiyJtkJoELUdJ9QRY",
       1000000000000
     ]
   ]
