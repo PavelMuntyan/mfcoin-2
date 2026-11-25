@@ -1,0 +1,125 @@
+name: Rehearse Main Net validators
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: PavelMuntyan/mfcoin-2
+          ref: b0708ed730e844fd04e3abe6df11566ec5b56a42
+      - name: Create rehearsal public config
+        run: |
+          node --input-type=module -e 'import fs from "node:fs"; const config=JSON.parse(fs.readFileSync("production.mainnet.json","utf8")); config.network={name:"MFCoin 2.0 Mainnet Rehearsal",id:"mfcoin-mainnet-rehearsal"}; fs.writeFileSync("production.rehearsal.json",JSON.stringify(config,null,2)+"\n");'
+      - name: Download runtime 117 artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run download 45623900963 --repo PavelMuntyan/mf-life --name testnet-115-archive --dir artifact
+          tar -xzf artifact/testnet-115-archive.tar.gz -C artifact
+          test "$(cat artifact/mfcoin-source-sha)" = "1c602a6f7f18b54038d2ca793deed69860b68ceb"
+      - name: Configure SSH
+        env:
+          MF_LIFE_DEPLOY_KEY: ${{ secrets.MF_LIFE_DEPLOY_KEY }}
+          MF_LIFE_HOST_KEY: ${{ secrets.MF_LIFE_HOST_KEY }}
+          MFC_FAILOVER_SSH_KEY: ${{ secrets.MFC_FAILOVER_SSH_KEY }}
+          MFC_FAILOVER_HOST_KEY: ${{ secrets.MFC_FAILOVER_HOST_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$MF_LIFE_DEPLOY_KEY" > ~/.ssh/id_ed25519_primary
+          printf '%s\n' "$MFC_FAILOVER_SSH_KEY" > ~/.ssh/id_ed25519_failover
+          printf '%s\n' "$MF_LIFE_HOST_KEY" > ~/.ssh/primary_known_hosts
+          printf '%s\n' "$MFC_FAILOVER_HOST_KEY" > ~/.ssh/failover_known_hosts
+          chmod 700 ~/.ssh
+          chmod 600 ~/.ssh/id_ed25519_primary ~/.ssh/id_ed25519_failover ~/.ssh/primary_known_hosts ~/.ssh/failover_known_hosts
+      - name: Deploy validators on primary
+        env:
+          MF_LIFE_SSH_HOST: ${{ secrets.MF_LIFE_SSH_HOST }}
+          MF_LIFE_SSH_USER: ${{ secrets.MF_LIFE_SSH_USER }}
+          MF_LIFE_SSH_PORT: ${{ secrets.MF_LIFE_SSH_PORT }}
+          V1: ${{ secrets.MFC_MAINNET_VALIDATOR_1_JSON }}
+          V2: ${{ secrets.MFC_MAINNET_VALIDATOR_2_JSON }}
+          P1: ${{ secrets.MFC_MAINNET_PAYOUT_1_JSON }}
+          P2: ${{ secrets.MFC_MAINNET_PAYOUT_2_JSON }}
+          G1: ${{ secrets.MFC_MAINNET_GOVERNANCE_1_JSON }}
+          G2: ${{ secrets.MFC_MAINNET_GOVERNANCE_2_JSON }}
+          G3: ${{ secrets.MFC_MAINNET_GOVERNANCE_3_JSON }}
+          R1: ${{ secrets.MFC_MAINNET_RELAYER_1_JSON }}
+          R2: ${{ secrets.MFC_MAINNET_RELAYER_2_JSON }}
+          TREASURY: ${{ secrets.MFC_MAINNET_TREASURY_JSON }}
+        run: |
+          set -euo pipefail
+          PRIMARY="ssh -i ~/.ssh/id_ed25519_primary -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/primary_known_hosts -p $MF_LIFE_SSH_PORT"
+          TARGET="$MF_LIFE_SSH_USER@$MF_LIFE_SSH_HOST"
+          ROOT=/var/tmp/mfcoin-mainnet-rehearsal
+          $PRIMARY "$TARGET" "mkdir -p $ROOT/secrets $ROOT/target/release"
+          rsync -az -e "ssh -i $HOME/.ssh/id_ed25519_primary -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/primary_known_hosts -p $MF_LIFE_SSH_PORT" production.rehearsal.json infra/mainnet/deploy-rehearsal.sh artifact/target/release/solochain-template-node "$TARGET:$ROOT/"
+          put_secret() {
+            local contents=$1
+            local destination=$2
+            printf '%s' "$contents" | $PRIMARY "$TARGET" "cat > $destination && chmod 600 $destination"
+          }
+          put_secret "$V1" "$ROOT/secrets/validator-1.json"
+          put_secret "$V2" "$ROOT/secrets/validator-2.json"
+          put_secret "$P1" "$ROOT/secrets/payout-1.json"
+          put_secret "$P2" "$ROOT/secrets/payout-2.json"
+          put_secret "$G1" "$ROOT/secrets/governance-1.json"
+          put_secret "$G2" "$ROOT/secrets/governance-2.json"
+          put_secret "$G3" "$ROOT/secrets/governance-3.json"
+          put_secret "$R1" "$ROOT/secrets/relayer-1.json"
+          put_secret "$R2" "$ROOT/secrets/relayer-2.json"
+          put_secret "$TREASURY" "$ROOT/secrets/treasury.json"
+          $PRIMARY "$TARGET" "chmod 755 $ROOT/solochain-template-node $ROOT/deploy-rehearsal.sh && MFC_REHEARSAL_NODE=$ROOT/solochain-template-node MFC_REHEARSAL_DATA=/var/tmp/mfcoin-mainnet-rehearsal-data MFC_REHEARSAL_START=1 bash $ROOT/deploy-rehearsal.sh"
+          PEER_ID=$($PRIMARY "$TARGET" "$ROOT/solochain-template-node key inspect-node-key --file /var/tmp/mfcoin-mainnet-rehearsal-data/validator-1/chains/mfcoin-mainnet-rehearsal/network/secret_ed25519")
+          echo "peer_id=$PEER_ID" >> "$GITHUB_OUTPUT"
+        id: primary
+      - name: Deploy validators on failover
+        env:
+          MFC_FAILOVER_HOST: ${{ secrets.MFC_FAILOVER_HOST }}
+          MFC_FAILOVER_USER: ${{ secrets.MFC_FAILOVER_USER }}
+          MFC_FAILOVER_PORT: ${{ secrets.MFC_FAILOVER_PORT }}
+          V3: ${{ secrets.MFC_MAINNET_VALIDATOR_3_JSON }}
+          V4: ${{ secrets.MFC_MAINNET_VALIDATOR_4_JSON }}
+          P3: ${{ secrets.MFC_MAINNET_PAYOUT_3_JSON }}
+          P4: ${{ secrets.MFC_MAINNET_PAYOUT_4_JSON }}
+          PEER_ID: ${{ steps.primary.outputs.peer_id }}
+        run: |
+          set -euo pipefail
+          FAILOVER="ssh -i ~/.ssh/id_ed25519_failover -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/failover_known_hosts -p $MFC_FAILOVER_PORT"
+          TARGET="$MFC_FAILOVER_USER@$MFC_FAILOVER_HOST"
+          ROOT=/opt/mfcoin-mainnet-rehearsal
+          $FAILOVER "$TARGET" "mkdir -p $ROOT/secrets $ROOT/target/release"
+          rsync -az -e "ssh -i $HOME/.ssh/id_ed25519_failover -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/failover_known_hosts -p $MFC_FAILOVER_PORT" production.rehearsal.json infra/mainnet/deploy-rehearsal.sh artifact/target/release/solochain-template-node "$TARGET:$ROOT/"
+          put_secret() {
+            local contents=$1
+            local destination=$2
+            printf '%s' "$contents" | $FAILOVER "$TARGET" "cat > $destination && chmod 600 $destination"
+          }
+          put_secret "$V3" "$ROOT/secrets/validator-3.json"
+          put_secret "$V4" "$ROOT/secrets/validator-4.json"
+          put_secret "$P3" "$ROOT/secrets/payout-3.json"
+          put_secret "$P4" "$ROOT/secrets/payout-4.json"
+          $FAILOVER "$TARGET" "chmod 755 $ROOT/solochain-template-node $ROOT/deploy-rehearsal.sh && MFC_REHEARSAL_NODE=$ROOT/solochain-template-node MFC_REHEARSAL_START=3 MFC_REHEARSAL_BOOTNODE='/ip4/65.108.230.60/tcp/30440/p2p/$PEER_ID' bash $ROOT/deploy-rehearsal.sh"
+      - name: Verify peers on both servers
+        env:
+          MF_LIFE_SSH_HOST: ${{ secrets.MF_LIFE_SSH_HOST }}
+          MF_LIFE_SSH_USER: ${{ secrets.MF_LIFE_SSH_USER }}
+          MF_LIFE_SSH_PORT: ${{ secrets.MF_LIFE_SSH_PORT }}
+          MFC_FAILOVER_HOST: ${{ secrets.MFC_FAILOVER_HOST }}
+          MFC_FAILOVER_USER: ${{ secrets.MFC_FAILOVER_USER }}
+          MFC_FAILOVER_PORT: ${{ secrets.MFC_FAILOVER_PORT }}
+        run: |
+          set -euo pipefail
+          PRIMARY="ssh -i ~/.ssh/id_ed25519_primary -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/primary_known_hosts -p $MF_LIFE_SSH_PORT"
+          FAILOVER="ssh -i ~/.ssh/id_ed25519_failover -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/failover_known_hosts -p $MFC_FAILOVER_PORT"
+          for connection in "$PRIMARY $MF_LIFE_SSH_USER@$MF_LIFE_SSH_HOST" "$FAILOVER $MFC_FAILOVER_USER@$MFC_FAILOVER_HOST"; do
+            $connection 'for port in 9960 9961 9962 9963; do curl -fsS --max-time 5 -H "content-type: application/json" --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"system_health\",\"params\":[]}" "http://127.0.0.1:$port"; echo; done'
+          done
