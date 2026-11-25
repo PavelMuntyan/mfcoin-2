@@ -62,11 +62,11 @@ for index in "$START" "$((START + 1))"; do
   payout=$(json_field "$payout_secret" publicKey)
   if [[ "$START" == "1" && "$index" == "2" && -z "$BOOTNODE" ]]; then
     peer_id=$("$NODE" key inspect-node-key --file "$DATA/validator-1/chains/mfcoin-mainnet-rehearsal/network/secret_ed25519")
-    BOOTNODE="/ip4/127.0.0.1/tcp/30440/p2p/$peer_id"
+    BOOTNODE="/ip4/127.0.0.1/tcp/30450/p2p/$peer_id"
   fi
   args=(
     --validator --chain "$ROOT/chain-spec-raw.json" --base-path "$base"
-    --rpc-port "$((9959 + index))" --port "$((30439 + index))"
+    --rpc-port "$((9969 + index))" --port "$((30449 + index))"
     --rpc-methods safe --no-mdns --no-prometheus --pow-payout-account "$payout"
   )
   if [[ -n "$BOOTNODE" ]]; then
