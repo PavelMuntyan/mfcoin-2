@@ -67,6 +67,11 @@ try {
     const wasm = await readFile(wasmPath);
     assert.equal(blake2AsHex(wasm), blake2AsHex(scheduled.code), "Runtime artifact does not match the scheduled proposal");
     const executeAt = scheduled.executeAt.toNumber();
+    if (process.env.MFCOIN_UPGRADE_DRY_RUN === "1") {
+      console.log(`Scheduled runtime artifact verified for proposal ${proposalId} at block ${executeAt}; no transaction was signed or submitted`);
+      await api.disconnect();
+      process.exit(0);
+    }
     while (true) {
       const finalizedHash = await api.rpc.chain.getFinalizedHead();
       const finalized = await api.rpc.chain.getHeader(finalizedHash);
