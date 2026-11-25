@@ -5,8 +5,8 @@ ROOT=${MFC_MAINNET_ROOT:-/var/www/balexey/data/mfcoin-mainnet}
 NODE=${MFC_MAINNET_NODE:-$ROOT/target/release/solochain-template-node}
 CONFIG=${MFC_MAINNET_CONFIG:-$ROOT/production.mainnet.json}
 BOOTNODE=${MFC_MAINNET_BOOTNODE:-}
-RPC_PORT=${MFC_MAINNET_RPC_PORT:-9965}
-P2P_PORT=${MFC_MAINNET_P2P_PORT:-30445}
+RPC_PORT=${MFC_MAINNET_RPC_PORT:-9984}
+P2P_PORT=${MFC_MAINNET_P2P_PORT:-30464}
 
 if [[ -z "$BOOTNODE" ]]; then
   echo "MFC_MAINNET_BOOTNODE must point to a Main Net validator" >&2
