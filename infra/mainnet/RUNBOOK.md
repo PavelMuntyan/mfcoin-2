@@ -11,7 +11,7 @@ Main Net must not start until Testnet 115 has executed runtime 117 after its sch
 
 Both servers stage files in `/opt/mfcoin-mainnet`. Chain data is in `/var/lib/mfcoin-mainnet`.
 
-Each server stores only its own two validator and payout documents. Treasury, relayer and governance documents stay in the protected deployment secret store and are exposed only to the short-lived launch job. Never print secret JSON, seed phrases or private keys. Validator RPC ports 9980–9985 are local-only. Public clients use the archive gateway, never a validator.
+Each server stores only its own two validator and payout documents. Treasury, relayer and governance documents stay in the protected deployment secret store and are exposed only to the short-lived launch job. Never print secret JSON, seed phrases or private keys. Validator RPC ports 9980–9985 are local-only. Public clients use the archive gateway, never a validator. On a host that also serves the website, set `MFC_WEB_PORTS="80 443"` when configuring UFW; never enable default-deny incoming without preserving existing public services.
 
 ## Pre-launch
 
