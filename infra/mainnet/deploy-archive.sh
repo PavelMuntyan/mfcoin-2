@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT=${MFC_MAINNET_ROOT:-/var/www/balexey/data/mfcoin-mainnet}
+ROOT=${MFC_MAINNET_ROOT:-/opt/mfcoin-mainnet}
 NODE=${MFC_MAINNET_NODE:-$ROOT/target/release/solochain-template-node}
 CONFIG=${MFC_MAINNET_CONFIG:-$ROOT/production.mainnet.json}
 BOOTNODE=${MFC_MAINNET_BOOTNODE:-}

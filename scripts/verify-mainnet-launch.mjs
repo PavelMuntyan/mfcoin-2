@@ -68,9 +68,14 @@ try {
   assert.ok(minted.toBigInt() > 0n, "No Main Net reward has been minted");
   assert.equal(issuance.toBigInt(), 1_000_000_000_000n + minted.toBigInt(), "Unexplained issuance");
 
-  const reference = connections.find(({ label }) => label === "validator-1").finalized;
+  const reference = (await api.rpc.chain.getHeader(finalizedHash)).number.toNumber();
+  finalizedNumber = reference;
   for (const archive of connections.filter(({ label }) => label.startsWith("archive-"))) {
-    assert.ok(archive.finalized + 8 >= reference, `${archive.label}: archive is behind ${reference} at ${archive.finalized}`);
+    const archiveHash = await archive.api.rpc.chain.getFinalizedHead();
+    const archiveFinalized = (await archive.api.rpc.chain.getHeader(archiveHash)).number.toNumber();
+    const archiveHealth = await archive.api.rpc.system.health();
+    assert.equal(archiveHealth.isSyncing.isTrue, false, `${archive.label}: archive resumed syncing`);
+    assert.ok(archiveFinalized + 8 >= reference, `${archive.label}: archive is behind ${reference} at ${archiveFinalized}`);
   }
 
   if (process.env.MFC_MAINNET_PROBE_KEY) {

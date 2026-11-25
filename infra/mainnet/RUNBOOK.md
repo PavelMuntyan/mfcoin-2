@@ -23,6 +23,8 @@ Each server stores only its own two validator and payout documents. Treasury, re
 
 ## Start
 
+Run node and backup commands as `root`, not as the web deployment user.
+
 ```bash
 MFC_MAINNET_START=1 MFC_MAINNET_DATA=/var/lib/mfcoin-mainnet \
   bash /opt/mfcoin-mainnet/deploy-mainnet-validators.sh
