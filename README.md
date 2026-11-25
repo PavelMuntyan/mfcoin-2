@@ -4,7 +4,7 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 18: the fresh Testnet 115 runs runtime 117 with independently generated validator and payout keys, GRANDPA finality, native rewards, governance upgrades and community assets. Mainnet has not been launched.
+Contour 18: Testnet 115 currently runs runtime 116 with independently generated validator and payout keys, GRANDPA finality, native rewards, governance upgrades and community assets. The runtime-117 proposal is scheduled for block 33918, and its on-chain code matches the reviewed artifact. Mainnet has not been launched.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
@@ -40,7 +40,7 @@ Validator obligations and releases are pruned after 1,200 blocks, within the can
 
 A GRANDPA Ed25519 public key is not treated as a spendable Sr25519 account. Validators register a payout account with an Ed25519 signature over a domain-separated payload containing genesis hash, set id, authority, payout and a replay-protected nonce. If no payout is registered, the share becomes an unclaimed credit and is not minted until `claim_validator_credit`.
 
-Runtime 114 offered no reward-storage migration from runtime 112; existing public networks received no retroactive obligations. Runtime 117 adds the asset pallet, initializes its next ID when absent and sets it to 1 in production genesis. Independent security review is required before mainnet.
+Runtime 114 offered no reward-storage migration from runtime 112; existing public networks received no retroactive obligations. Runtime 117 adds the asset pallet, initializes its next ID when absent and sets it to 1 in production genesis. The [public review summary](docs/AUDIT.md) records completed hardening and the remaining launch gates: runtime-117 execution on Testnet 115 followed by post-upgrade verification.
 
 Read-only `mfc_rewardTotals`, `mfc_rewardObligation`, `mfc_validatorReward`, `mfc_validatorCredit`, `mfc_validatorPayout` and `mfc_validatorPayoutNonce` expose accounting for independent verification. Amounts and nonces are strings where JavaScript precision could be lost.
 
@@ -116,6 +116,14 @@ The info root is deposited as an `MFCF` digest during `on_finalize`. `governance
 - Development state belongs to `.devnet/` and is not committed.
 - Validator keys, deployment credentials, passport data and KYC are not committed.
 - The MF Life website and its private archive are deployed from a separate repository.
+
+## Public verification documents
+
+- [Security review summary](docs/AUDIT.md)
+- [Vulnerability reporting policy](SECURITY.md)
+- [Reproducible build verification](docs/REPRODUCIBLE-BUILDS.md)
+- [Main Net operations runbook](infra/mainnet/RUNBOOK.md)
+- [Public Main Net candidate configuration](production.mainnet.json)
 
 ## Build
 
