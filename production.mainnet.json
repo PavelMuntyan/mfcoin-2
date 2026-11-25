@@ -1,0 +1,27 @@
+{
+  "network": {
+    "name": "MFCoin 2.0 Mainnet",
+    "id": "mfcoin2-mainnet"
+  },
+  "rewards": {
+    "activationBlock": 100,
+    "treasuryAccount": "5FZHi2bfKTJCGhGSZ4xh71ne3fJNKx97hkhAzauF6jJbBpth"
+  },
+  "validators": [
+    "5ChKjd8rt5QkNyR59jigjsEdi8TKRTaimXVd7KXHWu6iPoXj",
+    "5CBA6bb4hu6KH7Mmj2UTxNLTM5WyMp1EZGV2qKSpANXMCCJS",
+    "5EcYMTVgweHfN2CUFHNGCJzEXnPjuNrtfbCxd5xGVC4Mjo6e",
+    "5HfrC9kpHqDrMLrwHt8FCwkDP3wVR3JJ6b6mftWzPY38jCLQ"
+  ],
+  "governanceSignatories": [
+    "5Eo9eALbi7LxRQVkZFRBgWNtn2bJQcPmi4kEcjB5Hf6vPJnT",
+    "5GFF7dTAScfx2x5ZMW1tzg8FeqrpeNcLRPugX5CmGFDENvjc",
+    "5GpbDuChKjkhBWVVrXP7MzB8TPgMfKyzM5QcEkrA1H7sgxgj"
+  ],
+  "endowedAccounts": [
+    [
+      "5FZHi2bfKTJCGhGSZ4xh71ne3fJNKx97hkhAzauF6jJbBpth",
+      1000000000000
+    ]
+  ]
+}
