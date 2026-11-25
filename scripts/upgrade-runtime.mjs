@@ -40,11 +40,33 @@ try {
   const runtime = await api.rpc.state.getRuntimeVersion();
   console.log(`Connected to runtime ${runtime.specVersion.toString()} at ${api.genesisHash.toHex()}; governance ${governanceThreshold}-of-${signers.length} verified`);
 
+  const submit = (extrinsic, pair, label) => new Promise((resolve, reject) => {
+    let unsubscribe;
+    extrinsic.signAndSend(pair, ({ status, dispatchError, events }) => {
+      if (dispatchError) {
+        const error = dispatchError.isModule ? api.registry.findMetaError(dispatchError.asModule) : null;
+        reject(new Error(`${label}: ${error ? `${error.section}.${error.name}` : dispatchError.toString()}`));
+        return;
+      }
+      if (!status.isFinalized) return;
+      if (!events.some(({ event }) => api.events.system.ExtrinsicSuccess.is(event))) {
+        reject(new Error(`${label}: no ExtrinsicSuccess event`));
+        return;
+      }
+      unsubscribe?.();
+      resolve({ blockHash: status.asFinalized.toHex(), events, hash: extrinsic.hash.toHex() });
+    }).then((stop) => { unsubscribe = stop; }).catch(reject);
+  });
+
   if (process.env.MFCOIN_EXECUTE_PROPOSAL_ID) {
     const proposalId = process.env.MFCOIN_EXECUTE_PROPOSAL_ID;
     const proposal = await api.query.mfcGovernance.proposals(proposalId);
     assert.ok(proposal.isSome, "Upgrade proposal was not found");
-    const executeAt = proposal.unwrap().executeAt.toNumber();
+    assert.ok(proposal.unwrap().isSetCode, "Governance proposal is not a runtime upgrade");
+    const scheduled = proposal.unwrap().asSetCode;
+    const wasm = await readFile(wasmPath);
+    assert.equal(blake2AsHex(wasm), blake2AsHex(scheduled.code), "Runtime artifact does not match the scheduled proposal");
+    const executeAt = scheduled.executeAt.toNumber();
     while (true) {
       const finalizedHash = await api.rpc.chain.getFinalizedHead();
       const finalized = await api.rpc.chain.getHeader(finalizedHash);
@@ -68,23 +90,6 @@ try {
     process.exit(0);
   }
 
-  const submit = (extrinsic, pair, label) => new Promise((resolve, reject) => {
-    let unsubscribe;
-    extrinsic.signAndSend(pair, ({ status, dispatchError, events }) => {
-      if (dispatchError) {
-        const error = dispatchError.isModule ? api.registry.findMetaError(dispatchError.asModule) : null;
-        reject(new Error(`${label}: ${error ? `${error.section}.${error.name}` : dispatchError.toString()}`));
-        return;
-      }
-      if (!status.isFinalized) return;
-      if (!events.some(({ event }) => api.events.system.ExtrinsicSuccess.is(event))) {
-        reject(new Error(`${label}: no ExtrinsicSuccess event`));
-        return;
-      }
-      unsubscribe?.();
-      resolve({ blockHash: status.asFinalized.toHex(), events, hash: extrinsic.hash.toHex() });
-    }).then((stop) => { unsubscribe = stop; }).catch(reject);
-  });
   const otherSignatories = (pair) => publicKeys.filter((key) => Buffer.from(key).compare(Buffer.from(pair.publicKey)) !== 0);
   const maxWeight = { refTime: 100_000_000_000, proofSize: 3_100_000 };
 
