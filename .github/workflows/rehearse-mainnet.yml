@@ -19,13 +19,21 @@ jobs:
       - name: Create rehearsal public config
         run: |
           node --input-type=module -e 'import fs from "node:fs"; const config=JSON.parse(fs.readFileSync("production.mainnet.json","utf8")); config.network={name:"MFCoin 2.0 Mainnet Rehearsal",id:"mfcoin-mainnet-rehearsal"}; fs.writeFileSync("production.rehearsal.json",JSON.stringify(config,null,2)+"\n");'
-      - name: Download runtime 117 artifact
+      - name: Copy runtime 117 from failover
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MFC_FAILOVER_SSH_KEY: ${{ secrets.MFC_FAILOVER_SSH_KEY }}
+          MFC_FAILOVER_HOST_KEY: ${{ secrets.MFC_FAILOVER_HOST_KEY }}
+          MFC_FAILOVER_HOST: ${{ secrets.MFC_FAILOVER_HOST }}
+          MFC_FAILOVER_USER: ${{ secrets.MFC_FAILOVER_USER }}
+          MFC_FAILOVER_PORT: ${{ secrets.MFC_FAILOVER_PORT }}
         run: |
-          gh run download 45623900963 --repo PavelMuntyan/mf-life --name testnet-115-archive --dir artifact
-          tar -xzf artifact/testnet-115-archive.tar.gz -C artifact
-          test "$(cat artifact/mfcoin-source-sha)" = "1c602a6f7f18b54038d2ca793deed69860b68ceb"
+          mkdir -p ~/.ssh artifact/target/release
+          printf '%s\n' "$MFC_FAILOVER_SSH_KEY" > ~/.ssh/id_ed25519_failover
+          printf '%s\n' "$MFC_FAILOVER_HOST_KEY" > ~/.ssh/failover_known_hosts
+          chmod 700 ~/.ssh
+          chmod 600 ~/.ssh/id_ed25519_failover ~/.ssh/failover_known_hosts
+          rsync -az -e "ssh -i $HOME/.ssh/id_ed25519_failover -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/failover_known_hosts -p $MFC_FAILOVER_PORT" "$MFC_FAILOVER_USER@$MFC_FAILOVER_HOST:/opt/mfcoin-mainnet/target/release/solochain-template-node" artifact/target/release/
+          artifact/target/release/solochain-template-node --version
       - name: Configure SSH
         env:
           MF_LIFE_DEPLOY_KEY: ${{ secrets.MF_LIFE_DEPLOY_KEY }}
