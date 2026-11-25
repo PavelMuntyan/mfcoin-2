@@ -121,6 +121,10 @@ start_or_reload "mfc115-archive" "$NODE" --cwd "$ROOT" --time -- \
   --chain "$RAW" --base-path "$DATA/archive" --pruning archive \
   --rpc-port 9964 --port 30444 --rpc-methods safe --no-mdns --no-prometheus \
   --disable-pow-mining --bootnodes "$BOOTNODE"
+start_or_reload "mfc115-archive-failover" "$NODE" --cwd "$ROOT" --time -- \
+  --chain "$RAW" --base-path "$DATA/archive-failover" --pruning archive \
+  --rpc-port 9965 --port 30445 --rpc-methods safe --no-mdns --no-prometheus \
+  --disable-pow-mining --bootnodes "$BOOTNODE"
 
 pm2 save
 rpc_result 9960 chain_getHeader
