@@ -37,6 +37,7 @@ start_or_reload() {
   pm2 start "$NODE" --name "$name" --cwd "$ROOT" --time -- "$@"
 }
 
+export MFCOIN_GRANDPA_JUSTIFICATION_PERIOD=1
 for index in "$START" "$((START + 1))"; do
   validator_secret="$SECRETS/validator-$index.json"
   payout_secret="$SECRETS/payout-$index.json"
