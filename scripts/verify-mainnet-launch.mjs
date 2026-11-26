@@ -6,10 +6,16 @@ import { cryptoWaitReady } from "@polkadot/util-crypto";
 
 const expectedGenesis = process.env.MFC_MAINNET_EXPECTED_GENESIS_HASH;
 const config = JSON.parse(await readFile(process.env.MFC_MAINNET_CONFIG || new URL("../production.mainnet.json", import.meta.url), "utf8"));
+const rpcHosts = new Map((process.env.MFC_MAINNET_RPC_HOSTS || "").split(",").filter(Boolean).map((entry) => {
+  const separator = entry.indexOf("=");
+  assert.ok(separator > 0, `Invalid RPC host: ${entry}`);
+  return [entry.slice(0, separator), entry.slice(separator + 1)];
+}));
 const endpoints = (process.env.MFC_MAINNET_ENDPOINTS || "").split(",").filter(Boolean).map((entry) => {
   const separator = entry.indexOf("=");
   assert.ok(separator > 0, `Invalid endpoint: ${entry}`);
-  return { label: entry.slice(0, separator), url: entry.slice(separator + 1) };
+  const label = entry.slice(0, separator);
+  return { label, url: entry.slice(separator + 1), host: rpcHosts.get(label) };
 });
 const required = ["validator-1", "validator-2", "validator-3", "validator-4", "archive-primary", "archive-failover"];
 assert.ok(expectedGenesis, "MFC_MAINNET_EXPECTED_GENESIS_HASH is required");
@@ -17,7 +23,7 @@ assert.deepEqual(endpoints.map(({ label }) => label).sort(), [...required].sort(
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function connect(endpoint) {
-  const provider = new WsProvider(endpoint.url, 2_500);
+  const provider = new WsProvider(endpoint.url, 2_500, endpoint.host ? { Host: endpoint.host } : {});
   const api = await ApiPromise.create({ provider, noInitWarn: true });
   assert.equal(api.genesisHash.toHex(), expectedGenesis, `${endpoint.label}: wrong genesis`);
   assert.equal((await api.rpc.system.chain()).toString(), "MFCoin 2.0 Mainnet", `${endpoint.label}: wrong chain`);

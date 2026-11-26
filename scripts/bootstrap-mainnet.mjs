@@ -32,7 +32,8 @@ const addresses = recipients.map(({ destination }) => keyring.encodeAddress(dest
 assert.equal(new Set(addresses).size, recipients.length, "Bootstrap recipients must be unique");
 assert.ok(!addresses.includes(treasury.address), "Treasury cannot be a bootstrap recipient");
 
-const api = await ApiPromise.create({ provider: new WsProvider(rpcUrl) });
+const rpcHost = process.env.MFC_MAINNET_RPC_HOST;
+const api = await ApiPromise.create({ provider: new WsProvider(rpcUrl, undefined, rpcHost ? { Host: rpcHost } : {}) });
 assert.equal(api.genesisHash.toHex(), expectedGenesis, "Refusing to fund a different chain");
 assert.equal((await api.rpc.system.chain()).toString(), "MFCoin 2.0 Mainnet");
 assert.equal(api.runtimeVersion.specVersion.toNumber(), 117);
