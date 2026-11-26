@@ -167,7 +167,7 @@ Use these HTTPS endpoints for read-only verification. All are on `https://mf.lif
 | Next asset ID | `GET /api/explorer/next-asset-id` |
 | Legacy Testnet 112 status | `GET /api/explorer112/status` |
 
-The landing hero shows `peers` from `/api/community/network-status` as connected peers of the public RPC node. This is not a claim about the total number of nodes in the network.
+The landing hero shows `peers` from `/api/community/network-status` as connected peers of the public RPC node. This is not a claim about the total number of nodes in the network. The four statistic cards use four columns on desktop, two on tablet and one on mobile, with readable label wrapping.
 
 Explorer amounts are base-unit strings. Divide MFC values by `10^12` only when presenting them, preserving precision. Use `nextCursor` with the `before` parameter for pagination. Explorer indexes finalized data; initial backfill may show `syncing`.
 
