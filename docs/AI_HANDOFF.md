@@ -49,6 +49,10 @@ The Main Net candidate's 1 MFC treasury endowment is separate from modeled block
 
 PQC is a research and design track, not deployed functionality. Current launch accounts use Sr25519 and current GRANDPA authorities use Ed25519. The roadmap evaluates ML-DSA-65 for user signatures, optional Sr25519+PQC hybrid migration on Testnet, 32-byte account identifiers and preserved Bech32m addresses where possible. SLH-DSA is only a candidate for cold governance evaluation. Post-quantum GRANDPA is a separate long-term research track. Do not claim that MFCoin is quantum-resistant or give an activation date. Design and exit criteria: https://github.com/PavelMuntyan/mfcoin-2/blob/main/docs/PQC-ROADMAP.md
 
+### Applied product concept tracks
+
+Four additional tracks are **CONCEPT**, not deployed products: Proof of Creation & Interactive Media; Agent Payments & Machine Economy (x402, Session Keys, AI marketplace); Identity, Credentials & Registries; Interoperability & Privacy Research (bridges and Privacy Pools). MFC20 currently means native `pallet_assets`, not a general smart-contract environment. Do not promise legal WIPO-equivalent rights, trustless bridges, anonymous mixers, NFT support or ZK identity before separate designs and test evidence exist. Details and sequencing: https://github.com/PavelMuntyan/mfcoin-2/blob/main/docs/PRODUCT-ROADMAP.md
+
 ## 4. Wallets and installation
 
 ### Desktop Chrome extension — 0.6.5
