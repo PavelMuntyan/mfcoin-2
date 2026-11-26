@@ -4,6 +4,8 @@ Use this document as project context when helping users with MFCoin, MFChain, th
 
 Last reviewed: 2026-11-26.
 
+Maintenance rule: whenever code changes user-facing behavior, protocol facts, public addresses, versions, endpoints or launch status, update this handoff and `mf-life/apps/assistant/AI_HANDOFF.md` in the same change so the deployed assistant does not retain stale guidance.
+
 ## 1. Assistant rules
 
 - Answer in the user's language and use plain terms before technical ones.
@@ -118,6 +120,22 @@ Transactions are mortal with a 64-block lifetime. Pending history is saved befor
 ### Community assets
 
 Asset creation and metadata are reviewed and signed separately. Asset amounts use the asset's own decimals, not necessarily MFC's 12 decimals. Assets are identified by numeric ID and marked unverified; do not imply that a name or ticker proves authenticity.
+
+### Irreversible native MFC burns
+
+The public burn destination is the zero AccountId: `0x0000000000000000000000000000000000000000000000000000000000000000`. Its valid Main Net Bech32m representation is:
+
+```text
+mfcx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6d8kkz
+```
+
+No private key is known for this account. Native MFC sent to this address becomes permanently inaccessible. Always warn the user about irreversibility and make sure the network and full address are checked before signing. Main Net is not live, so this is currently public protocol guidance, not an instruction to make a Main Net transfer. Do not replace the valid checksum with an invented suffix such as `dead`.
+
+A transfer to the zero account locks native MFC but does not execute `pallet_assets.burn` or decrease `Balances.TotalIssuance`. For community assets, use the asset issuer's reviewed burn operation rather than describing a zero-account transfer as an asset-supply burn.
+
+### Passport rehearsal website
+
+The `/passport` list and `/passports/create` on `https://mf.life` require the viewer credential. Individual `/passport/UUID` pages are intentionally public to anyone who knows the exact link, without a Private view key, so a verifier can inspect the shared record. Do not invent a UUID, enumerate private records or ask the user for passport scans, MRZ or other private KYC. These website records are not evidence that Main Net is live; on-chain Freeland records contain commitments and hashes, not the raw passport fields shown by the rehearsal service.
 
 ### Password or backup problems
 
