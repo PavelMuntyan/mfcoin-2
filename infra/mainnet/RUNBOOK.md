@@ -39,7 +39,7 @@ MFC_MAINNET_START=3 MFC_MAINNET_BOOTNODE=/ip4/65.108.230.60/tcp/30460/p2p/PEER_I
 
 Do not start a validator with an empty or reused chain database from another network. After the four validators finalize blocks, start one archive per server with `MFC_MAINNET_BOOTNODE` set to a validator multiaddress. Primary uses RPC/P2P 9984/30464 and failover 9985/30465.
 
-Run the protected bootstrap job once. It verifies the genesis hash and runtime, then uses `transferKeepAlive` to fund two relayers with 0.05 MFC each and three governance signers with 0.01 MFC each. Register validator payouts and start reward relayers only after this succeeds. Finally run `Verify Main Net launch` with the expected genesis hash; it checks all six nodes, finality, GRANDPA evidence, rewards, archive synchronization and `author_submitExtrinsic`.
+Run the protected bootstrap job after finality is confirmed. It verifies the genesis hash and runtime, then uses `transferKeepAlive` to fund two relayers with 0.05 MFC each and three governance signers with 0.01 MFC each. Already funded recipients are skipped on a retry; fresh zero-balance recipients can be resumed after a partial failure, while partial balances and used empty accounts require manual review. Each submission pins the treasury nonce and verifies it after finalization. Register validator payouts and start reward relayers only after this succeeds. Finally run `Verify Main Net launch` with the expected genesis hash; it checks all six nodes, finality, GRANDPA evidence, rewards, archive synchronization and `author_submitExtrinsic`.
 
 ## Routine checks and backups
 
