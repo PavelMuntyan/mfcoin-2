@@ -2,7 +2,7 @@
 
 Use this document as project context when helping users with MFCoin, MFChain, the browser wallet, the Android package, Explorer and public verification APIs. It is a public user-assistance guide, not an operations runbook and not a security certification.
 
-Last reviewed: 2026-11-26.
+Last reviewed: 2026-11-27.
 
 Maintenance rule: whenever code changes user-facing behavior, protocol facts, public addresses, versions, endpoints or launch status, update this handoff and `mf-life/apps/assistant/AI_HANDOFF.md` in the same change so the deployed assistant does not retain stale guidance.
 
@@ -68,7 +68,7 @@ Public page: https://mf.life/wallet/
 5. Create a password of at least 10 characters.
 6. For a new account, write down the 12-word seed phrase offline and confirm the three randomly requested words. An account is not activated before backup confirmation.
 
-The extension deliberately has no dApp provider, content scripts, website signing, telemetry or remote configuration.
+The extension requests the `storage` and `sidePanel` permissions; `sidePanel` is used only to open the wallet in the browser’s side panel. It deliberately has no dApp provider, content scripts, website signing, telemetry or remote configuration.
 
 ### Android test package — 0.6.2
 
@@ -99,7 +99,7 @@ Build instructions: https://github.com/PavelMuntyan/mfcoin-wallet/blob/main/ANDR
 - **Imported seed/private key:** can sign after validation.
 - **Watch-only:** contains only a public address and can never sign or export a private key, including direct background calls.
 
-Mainnet-labelled accounts may be shown as not live before Main Net launch. Do not treat that label as a synchronization error.
+The public Testnet 115 wallet build creates and imports Testnet 115 accounts. Main Net is not live; do not treat a Main Net address as compatible with this build.
 
 ## 5. Common user operations
 
@@ -187,7 +187,7 @@ Check whether DNS, HTTP and HTTPS work before discussing the chain. A website ou
 
 ### Wallet cannot load balance or history
 
-1. Confirm the account is on Testnet 115, not a Mainnet-labelled not-live account.
+1. Confirm that both the account and the wallet build are configured for Testnet 115.
 2. Check `/health/rpc` and `/api/community/network-status`.
 3. Check `/api/explorer/status` for Explorer availability.
 4. If Explorer is unavailable, the wallet may show a clearly marked local-only history. This is different from an incorrect on-chain balance.
