@@ -17,7 +17,7 @@ Each server stores only its own two validator and payout documents. Treasury, re
 
 1. Confirm the Testnet 115 runtime-117 proposal executed and all post-upgrade checks passed.
 2. Run `scripts/check-mainnet-config.mjs` and export the raw spec on both servers with `MFCOIN_PRODUCTION_CONFIG` pointing to `production.mainnet.json`.
-3. Compare raw-spec SHA-256 hashes. Run `scripts/verify-mainnet-genesis.mjs`; it must report runtime 117, four validators, exactly one funded account and `1000000000000` base units (1 MFC).
+3. Compare raw-spec SHA-256 hashes. Run `scripts/verify-mainnet-genesis.mjs`; it must report runtime 117, the exact four configured authority IDs, the configured governance 2-of-3 account, exactly one funded account, zero reserved/frozen balances and `1000000000000` base units (1 MFC).
 4. Record the expected genesis hash after starting validator 1. Every other node and every launch check must use the same hash.
 5. Confirm both servers pass `pm2 status`, have time synchronized, have at least 20 GiB free, and have a fresh backup. Confirm UFW and the local-only RPC rules.
 

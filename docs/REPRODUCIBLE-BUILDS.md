@@ -43,11 +43,13 @@ export MFCOIN_PRODUCTION_CONFIG="$PWD/production.mainnet.json"
 Run `scripts/verify-mainnet-genesis.mjs` with `MFC_MAINNET_RAW_SPEC` pointing to that file. The check requires:
 
 - network ID `mfcoin2-mainnet` and runtime `specVersion=117`;
-- four GRANDPA authorities and three governance signatories;
+- the exact four configured GRANDPA authority IDs in order, each with weight 1;
+- the governance account derived from the configured 2-of-3 signatories;
+- the configured rewards treasury and activation block;
 - no sudo key or Aura authorities;
 - total issuance of exactly `1000000000000` base units (1 MFC);
 - exactly one funded account, the configured treasury;
-- zero funded balances for every other account.
+- zero funded balances for every other account and zero reserved/frozen balances for every account.
 
 Compare the raw-spec SHA-256 across every production host before launch. After validator 1 starts, pin and compare the resulting genesis hash everywhere else.
 
