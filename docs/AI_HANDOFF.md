@@ -24,7 +24,7 @@ MFCoin 2.0 is a new Layer One protocol, not an ERC20/TRC20 token contract. MFCha
 
 At this document's review time:
 
-- **Testnet 115** is the active public test network with four validators. It runs runtime 116. A runtime-117 `SetCode` proposal is scheduled for block 33918; until it executes and passes verification, the current runtime is 116.
+- **Testnet 115** is the active public test network with four validators. It runs runtime 117. The runtime-117 `SetCode` proposal executed after its scheduled block 33918; finality, reward accounting, Explorer and wallet checks passed after the upgrade.
 - **Testnet 112** is a legacy network retained for archive and migration history. Do not confuse it with Testnet 115 or Main Net.
 - **Main Net has not launched.** The candidate raw genesis has exactly 1 MFC assigned to treasury and no other funded accounts. This is a launch configuration, not a live distribution.
 - The runtime-117 source revision used for the reproducible build is `7cf7e48a30eb084c14e51325839e3ea5bfc8f0c1`.
@@ -38,7 +38,7 @@ These facts change. Before discussing current runtime or launch status, fetch `/
 - Address format: Bech32m, `mfcx` for Main Net and `tmfcx` for testnets. The underlying 32-byte Sr25519 account ID is unchanged between representations.
 - Emission target: 10,000,000 MFC in year one, decreasing 10% annually for 20 years, then 500,000 MFC annually. There is no fixed maximum supply.
 - Target block interval for emission: 6 seconds, 5,256,000 blocks per year.
-- Calculated MFC20 simple-transfer ceiling: approximately 383 transfers per second at the 6-second target, using runtime-116 `transferKeepAlive` weight `651779000` ref_time and the normal block budget `1500000000000` ref_time. This is a theoretical weight-based ceiling, not a load-tested sustained rate, not a guarantee for every operation type and not a finality guarantee. Do not claim 1450 TPS: 8700 such transfers would require `5670477300000` ref_time, exceeding the normal block budget.
+- Calculated MFC20 simple-transfer ceiling: approximately 383 transfers per second at the 6-second target, using runtime-117 `transferKeepAlive` weight `651779000` ref_time and the normal block budget `1500000000000` ref_time. This is a theoretical weight-based ceiling, not a load-tested sustained rate, not a guarantee for every operation type and not a finality guarantee. Do not claim 1450 TPS: 8700 such transfers would require `5670477300000` ref_time, exceeding the normal block budget.
 - Subsidy split: 45% community PoW, 35% GRANDPA validators, 20% treasury. Integer rounding remainder goes to treasury.
 - PoW and treasury obligations mature after 10 canonical blocks. Validator shares use actual verified GRANDPA precommit evidence, not assumed uptime.
 - There is no root extrinsic or privileged admin mint for arbitrary MFC issuance.
@@ -212,7 +212,7 @@ Require version 0.6.2 for the corrected status/navigation-bar insets and centere
 
 ### Incorrect runtime answers
 
-Read `specVersion` from `/api/community/network-status`. Do not rely on a hardcoded page label or an old handoff snapshot. Runtime 117 must not be described as active before execution is confirmed.
+Read `specVersion` from `/api/community/network-status`. Do not rely on a hardcoded page label or an old handoff snapshot. Runtime 117 is active after execution and post-upgrade verification; earlier runtime-116 snapshots are historical.
 
 ## 8. Public source and further reading
 
