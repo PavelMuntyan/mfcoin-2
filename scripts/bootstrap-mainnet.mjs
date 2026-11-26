@@ -9,10 +9,12 @@ const rpcUrl = process.env.MFC_MAINNET_RPC_URL || "ws://127.0.0.1:9980";
 const expectedGenesis = process.env.MFC_MAINNET_EXPECTED_GENESIS_HASH;
 const treasuryFile = process.env.MFC_MAINNET_TREASURY;
 const relayerFiles = [process.env.MFC_MAINNET_RELAYER_1, process.env.MFC_MAINNET_RELAYER_2];
-const governanceFiles = (process.env.MFC_MAINNET_GOVERNANCE_FILES || "").split(",").filter(Boolean);
-if (!expectedGenesis || !treasuryFile || relayerFiles.some((file) => !file) || governanceFiles.length !== 3) {
-  throw new Error("Expected genesis, treasury, two relayers and three governance files are required");
+if (!expectedGenesis || !treasuryFile || relayerFiles.some((file) => !file)) {
+  throw new Error("Expected genesis, treasury and two relayers are required");
 }
+const configPath = process.env.MFC_MAINNET_CONFIG || new URL("../production.mainnet.json", import.meta.url).pathname;
+const config = JSON.parse(await readFile(configPath, "utf8"));
+assert.equal(config.governanceSignatories.length, 3);
 
 await cryptoWaitReady();
 const keyring = new Keyring({ ss58Format: 42, type: "sr25519" });
@@ -23,9 +25,8 @@ for (const [index, file] of relayerFiles.entries()) {
   const relayer = JSON.parse(await readFile(file, "utf8"));
   recipients.push({ destination: relayer.publicKey, amount: 50_000_000_000n, label: `relayer-${index + 1}` });
 }
-for (const [index, file] of governanceFiles.entries()) {
-  const governance = JSON.parse(await readFile(file, "utf8"));
-  recipients.push({ destination: governance.publicKey, amount: 10_000_000_000n, label: `governance-${index + 1}` });
+for (const [index, address] of config.governanceSignatories.entries()) {
+  recipients.push({ destination: address, amount: 10_000_000_000n, label: `governance-${index + 1}` });
 }
 const addresses = recipients.map(({ destination }) => keyring.encodeAddress(destination));
 assert.equal(new Set(addresses).size, recipients.length, "Bootstrap recipients must be unique");

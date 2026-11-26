@@ -11,7 +11,11 @@ Main Net must not start until Testnet 115 has executed runtime 117 after its sch
 
 Both servers stage files in `/opt/mfcoin-mainnet`. Chain data is in `/var/lib/mfcoin-mainnet`.
 
-Each server stores only its own two validator and payout documents. Treasury, relayer and governance documents stay in the protected deployment secret store and are exposed only to the short-lived launch job. Never print secret JSON, seed phrases or private keys. Validator RPC ports 9980–9985 are local-only. Public clients use the archive gateway, never a validator. On a host that also serves the website, set `MFC_WEB_PORTS="80 443"` when configuring UFW; never enable default-deny incoming without preserving existing public services.
+Each server stores only its own two validator and payout documents. Treasury and relayer documents stay in the protected deployment secret store and are exposed only to the short-lived launch job. Governance documents remain in independent signer vaults and must not be uploaded to GitHub, workflow artifacts or either host. Bootstrap needs only the public governance addresses from `production.mainnet.json`. Never print secret JSON, seed phrases or private keys. Validator RPC ports 9980–9985 are local-only. Public clients use the archive gateway, never a validator. On a host that also serves the website, set `MFC_WEB_PORTS="80 443"` when configuring UFW; never enable default-deny incoming without preserving existing public services.
+
+## Governance custody
+
+Before launch, at least two signers must each hold their own document in an independent 1Password or Bitwarden vault under their control, not a shared project vault. Each signer creates an encrypted offsite backup, stores its decryption passphrase separately and performs a restore onto a clean device. The restored document is valid only when its public key matches the corresponding `governanceSignatories` entry; never compare or transmit the secret phrase in chat or logs. Remove the governance documents from the shared GitHub environment after these restores are confirmed. Runtime approvals must use the independent signer copies.
 
 ## Pre-launch
 
