@@ -26,7 +26,7 @@ At this document's review time:
 - **Testnet 112** is a legacy network retained for archive and migration history. Do not confuse it with Testnet 115 or Main Net.
 - **Main Net has not launched.** The candidate raw genesis has exactly 1 MFC assigned to treasury and no other funded accounts. This is a launch configuration, not a live distribution.
 - The runtime-117 source revision used for the reproducible build is `7cf7e48a30eb084c14e51325839e3ea5bfc8f0c1`.
-- Android Wallet 0.6.2 is a debug-signed test package, not a Play Store release. The desktop Chrome package is 0.6.1.
+- Android Wallet 0.6.2 is a debug-signed test package, not a Play Store release. The desktop Chrome package is 0.6.5.
 
 These facts change. Before discussing current runtime or launch status, fetch `/api/community/network-status` and, if Main Net is announced, independently confirm the new network rather than reusing the Testnet answer.
 
@@ -45,13 +45,17 @@ These facts change. Before discussing current runtime or launch status, fetch `/
 
 The Main Net candidate's 1 MFC treasury endowment is separate from modeled block emission. Do not describe it as a general premine distributed to founders.
 
+### Post-quantum design track
+
+PQC is a research and design track, not deployed functionality. Current launch accounts use Sr25519 and current GRANDPA authorities use Ed25519. The roadmap evaluates ML-DSA-65 for user signatures, optional Sr25519+PQC hybrid migration on Testnet, 32-byte account identifiers and preserved Bech32m addresses where possible. SLH-DSA is only a candidate for cold governance evaluation. Post-quantum GRANDPA is a separate long-term research track. Do not claim that MFCoin is quantum-resistant or give an activation date. Design and exit criteria: https://github.com/PavelMuntyan/mfcoin-2/blob/main/docs/PQC-ROADMAP.md
+
 ## 4. Wallets and installation
 
-### Desktop Chrome extension — 0.6.1
+### Desktop Chrome extension — 0.6.5
 
 Public page: https://mf.life/wallet/
 
-1. Download `mfcoin-wallet-chrome-0.6.1.zip` and its SHA-256 file.
+1. Download `mfcoin-wallet-chrome-0.6.5.zip` and its SHA-256 file.
 2. Verify the checksum before extracting. Keep the extracted folder for future updates.
 3. Open `chrome://extensions` in Chrome, Edge or Brave and enable Developer mode.
 4. Choose **Load unpacked**, select the extracted folder and pin **MFCoin Wallet**.
