@@ -57,18 +57,24 @@ try {
   assert.equal((await api.query.mfcRewards.enabled()).isTrue, true);
   assert.equal((await api.query.mfcRewards.activationBlock()).toNumber(), config.rewards.activationBlock);
   assert.equal((await api.query.mfcRewards.treasuryAccount()).unwrap().toString(), config.rewards.treasuryAccount);
-  const issuanceDeadline = Date.now() + 300_000;
+  const firstMintBlock = config.rewards.activationBlock + api.consts.mfcRewards.rewardMaturation.toNumber();
+  const blockTimeMs = api.consts.timestamp.minimumPeriod.toNumber() * 2;
+  const remainingBlocks = Math.max(0, firstMintBlock - finalizedNumber);
+  const issuanceDeadline = Date.now() + remainingBlocks * blockTimeMs + 120_000;
   let issuance = await api.query.balances.totalIssuance();
   let minted = await api.query.mfcRewards.mintedTotal();
+  if (minted.isZero()) console.log(JSON.stringify({ waitingForRewardBlock: firstMintBlock, finalized: finalizedNumber, timeoutSeconds: Math.ceil((issuanceDeadline - Date.now()) / 1000) }));
   while (Date.now() < issuanceDeadline && minted.isZero()) {
     await sleep(3_000);
     issuance = await api.query.balances.totalIssuance();
     minted = await api.query.mfcRewards.mintedTotal();
   }
-  assert.ok(minted.toBigInt() > 0n, "No Main Net reward has been minted");
+  assert.ok(minted.toBigInt() > 0n, `No Main Net reward has been minted after block ${firstMintBlock}`);
   assert.equal(issuance.toBigInt(), 1_000_000_000_000n + minted.toBigInt(), "Unexplained issuance");
+  finalizedHash = await api.rpc.chain.getFinalizedHead();
+  finalizedNumber = (await api.rpc.chain.getHeader(finalizedHash)).number.toNumber();
 
-  const reference = (await api.rpc.chain.getHeader(finalizedHash)).number.toNumber();
+  const reference = finalizedNumber;
   finalizedNumber = reference;
   for (const archive of connections.filter(({ label }) => label.startsWith("archive-"))) {
     const archiveHash = await archive.api.rpc.chain.getFinalizedHead();
