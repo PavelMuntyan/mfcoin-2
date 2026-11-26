@@ -38,6 +38,7 @@ These facts change. Before discussing current runtime or launch status, fetch `/
 - Address format: Bech32m, `mfcx` for Main Net and `tmfcx` for testnets. The underlying 32-byte Sr25519 account ID is unchanged between representations.
 - Emission target: 10,000,000 MFC in year one, decreasing 10% annually for 20 years, then 500,000 MFC annually. There is no fixed maximum supply.
 - Target block interval for emission: 6 seconds, 5,256,000 blocks per year.
+- Calculated MFC20 simple-transfer ceiling: approximately 383 transfers per second at the 6-second target, using runtime-116 `transferKeepAlive` weight `651779000` ref_time and the normal block budget `1500000000000` ref_time. This is a theoretical weight-based ceiling, not a load-tested sustained rate, not a guarantee for every operation type and not a finality guarantee. Do not claim 1450 TPS: 8700 such transfers would require `5670477300000` ref_time, exceeding the normal block budget.
 - Subsidy split: 45% community PoW, 35% GRANDPA validators, 20% treasury. Integer rounding remainder goes to treasury.
 - PoW and treasury obligations mature after 10 canonical blocks. Validator shares use actual verified GRANDPA precommit evidence, not assumed uptime.
 - There is no root extrinsic or privileged admin mint for arbitrary MFC issuance.
