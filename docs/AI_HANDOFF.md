@@ -169,6 +169,8 @@ Use these HTTPS endpoints for read-only verification. All are on `https://mf.lif
 
 Explorer amounts are base-unit strings. Divide MFC values by `10^12` only when presenting them, preserving precision. Use `nextCursor` with the `before` parameter for pagination. Explorer indexes finalized data; initial backfill may show `syncing`.
 
+Explorer block and account detail pages provide `⧉` buttons beside Block hash, Parent hash, State root, Extrinsics root, Account ID and Finalized hash. The button copies the full value and shows a `Text copied` confirmation for two seconds.
+
 Example:
 
 ```sh
