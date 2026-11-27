@@ -20,7 +20,7 @@ const endpoints = (process.env.MFC_MAINNET_ENDPOINTS || "").split(",").filter(Bo
   const label = entry.slice(0, separator);
   return { label, url: entry.slice(separator + 1), host: rpcHosts.get(label) };
 });
-const required = ["validator-1", "validator-2", "validator-3", "validator-4", "archive-primary", "archive-failover"];
+const required = (process.env.MFC_MAINNET_REQUIRED || "validator-1,validator-2,validator-3,validator-4,archive-primary,archive-failover").split(",");
 assert.ok(expectedGenesis, "MFC_MAINNET_EXPECTED_GENESIS_HASH is required");
 assert.deepEqual(endpoints.map(({ label }) => label).sort(), [...required].sort());
 
@@ -43,7 +43,8 @@ async function connect(endpoint) {
 const connections = [];
 try {
   for (const endpoint of endpoints) connections.push(await connect(endpoint));
-  const primary = connections.find(({ label }) => label === "validator-1");
+  const primaryLabel = process.env.MFC_MAINNET_PRIMARY_LABEL || "validator-1";
+  const primary = connections.find(({ label }) => label === primaryLabel);
   const api = primary.api;
   const start = primary.finalized;
   const deadline = Date.now() + 120_000;
