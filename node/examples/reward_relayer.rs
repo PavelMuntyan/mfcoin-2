@@ -195,13 +195,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				.await?;
 			let proof = match justification_bytes(&block) {
 				Ok(proof) => proof,
-				Err(_) if !queue.bootstrap_complete => {
-					println!("validator_relay_unfinalized_skipped=true target={target}");
-					queue.next_target += 1;
-					save_queue(&queue_path, &queue)?;
-					continue;
+				Err(error) => {
+					let reason = error.to_string();
+					if reason == "Missing justifications" || reason == "No FRNK justification in target block" {
+						println!("validator_relay_unfinalized_skipped=true target={target}");
+						queue.next_target += 1;
+						save_queue(&queue_path, &queue)?;
+						continue;
+					}
+					return Err(format!("Cannot release target {target}: {reason}").into());
 				}
-				Err(error) => return Err(format!("Cannot release target {target}: {error}").into()),
 			};
 			queue.bootstrap_complete = true;
 			if queue.pending.len() >= MAX_PENDING {
