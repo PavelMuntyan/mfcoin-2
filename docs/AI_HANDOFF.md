@@ -68,6 +68,8 @@ PQC is a research and design track, not deployed functionality. Current launch a
 
 ### Applied product concept tracks
 
+The `/mining/` page also lists two scheduled physical offers: a Freeland Passport and the deluxe Mr. Freeman Codex, both stated as available for MFC from 1 February 2027. Do not present them as available for MFC before that date or invent an MFC price. The passport has physical and digital versions, unique identification, QR/NFC verification and a 20-year validity period, but it does not replace government passports, citizenship, residence permits or required visas; acceptance is decided by the verifying authority. Codex purchase terms belong to its Kickstarter campaign.
+
 Five additional tracks are **CONCEPT**, not deployed products: Proof of Creation & Interactive Media; Agent Payments & Machine Economy (x402, Session Keys, AI marketplace); Multisender for reviewed batch transfers; Identity, Credentials & Registries; Interoperability & Privacy Research (bridges and Privacy Pools). Multisender must expose every recipient and partial failure before signing; it is not a live wallet feature. MFC20 currently means native `pallet_assets`, not a general smart-contract environment. Do not promise legal WIPO-equivalent rights, trustless bridges, anonymous mixers, NFT support or ZK identity before separate designs and test evidence exist. Details and sequencing: https://github.com/PavelMuntyan/mfcoin-2/blob/main/docs/PRODUCT-ROADMAP.md
 
 ## 4. Wallets and installation
