@@ -23,8 +23,8 @@ const configPath = process.env.MFC_MAINNET_CONFIG || new URL("../production.main
 const founderConfigPath = process.env.MFC_MAINNET_FOUNDER_CONFIG || new URL("../founder-payouts.mainnet.json", import.meta.url).pathname;
 const config = JSON.parse(await readFile(configPath, "utf8"));
 const { founderPayouts } = JSON.parse(await readFile(founderConfigPath, "utf8"));
-assert.equal(founderPayouts.length, 6);
-assert.equal(new Set(founderPayouts).size, 6);
+assert.equal(founderPayouts.length, 4);
+assert.equal(new Set(founderPayouts).size, 4);
 
 await cryptoWaitReady();
 const ed25519 = new Keyring({ ss58Format: 42, type: "ed25519" });

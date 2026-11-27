@@ -11,7 +11,7 @@ assert.equal(config.network.name, "MFCoin 2.0 Mainnet");
 assert.equal(config.network.id, "mfcoin2-mainnet");
 assert.equal(config.validators.length, 4);
 assert.equal(new Set(config.validators).size, config.validators.length);
-assert.equal(founderPayouts.length, 6);
+assert.equal(founderPayouts.length, 4);
 assert.equal(new Set(founderPayouts).size, founderPayouts.length);
 assert.ok(founderPayouts.every((account) => encodeAddress(account, 42) === account));
 assert.ok(!founderPayouts.includes(config.rewards.treasuryAccount));

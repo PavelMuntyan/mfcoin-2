@@ -24,8 +24,8 @@ done
 mapfile -t founder_payouts < <(node -e '
   const config = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
   const production = JSON.parse(require("fs").readFileSync(process.argv[2], "utf8"));
-  if (!Array.isArray(config.founderPayouts) || config.founderPayouts.length !== 6) throw new Error("Exactly six founder payout addresses are required");
-  if (new Set(config.founderPayouts).size !== 6) throw new Error("Founder payout addresses must be unique");
+  if (!Array.isArray(config.founderPayouts) || config.founderPayouts.length !== 4) throw new Error("Exactly four active founder payout addresses are required");
+  if (new Set(config.founderPayouts).size !== 4) throw new Error("Founder payout addresses must be unique");
   if (config.founderPayouts.includes(production.rewards.treasuryAccount)) throw new Error("Treasury cannot be a founder payout");
   for (const payout of config.founderPayouts) console.log(payout);
 ' "$PAYOUT_CONFIG" "$CONFIG")
