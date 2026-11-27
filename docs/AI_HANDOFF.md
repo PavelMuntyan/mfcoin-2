@@ -30,6 +30,8 @@ At this document's review time:
 - The runtime-117 source revision used for the reproducible build is `7cf7e48a30eb084c14e51325839e3ea5bfc8f0c1`.
 - Android Wallet 0.6.2 is a debug-signed test package, not a Play Store release. The desktop Chrome package is 0.6.5.
 - The operator start workflow requires a pinned `mfcoin-2` revision and expected genesis. It skips validator restarts while finality advances unless `restart_validators=true`; that explicit restart applies `founder-payouts.mainnet.json`, backs up custody material and requires renewed finalized growth. The separate protected registration workflow signs Founder 01–04 destinations with the existing validator documents and confirms them on-chain without logging secrets. Bootstrap is complete and must not be repeated: treasury nonce 6 includes five transfers and one probe. Launch verification runs independently on each validator host through local RPC, checks that host's validators and archive, and uses the `ws` package explicitly when RPC Host headers are needed. Reward checks use the protocol's 10-block maturation and allow for transaction-fee burning rather than treating it as unexplained issuance.
+- Validator rewards are accruing on Main Net, but no release has been paid yet because the Main Net reward relayer was not deployed. The protected `Start Main Net reward relayers` workflow builds the reviewed Rust binary, verifies genesis and starts persistent queues on both hosts. Do not describe validator rewards as paid until `validatorPaid` increases on-chain.
+
 - The four historical PoW payout secret documents remain in protected production custody. At the owner's explicit request, `scripts/update-founder-env.sh` in `mf-life` exports them through a one-day hybrid RSA-OAEP/AES-encrypted GitHub artifact and writes `founder-payout-keys.json` in the project root with mode 600, without modifying `.env` or printing secrets. The local RSA private key and decrypted JSON are not committed. Export validates all four expected PoW public keys as a unique set without assuming their secret-document numbering. Missing Founder 01–06 seeds cannot be reconstructed from public addresses; verify their independent custody before any payout rotation.
 
 These facts change. Before discussing current runtime or launch status, fetch `/api/community/network-status` and, if Main Net is announced, independently confirm the new network rather than reusing the Testnet answer.
@@ -85,26 +87,27 @@ The extension requests the `storage` and `sidePanel` permissions; `sidePanel` is
 
 Download `mfcoin-wallet-chrome-mainnet-0.6.5.zip` and its SHA-256 file from https://mf.life/wallet/. This separate Main Net build uses `mfcx` addresses and is pinned to genesis `0x4ab2663e09fc2758b1a3702d91b853949708570502ac099a67abc1aad9167d0e`. Do not use the Testnet 115 build for Main Net transfers.
 
-### Android test package — 0.6.2
+### Main Net Android test package — 0.6.2
 
-Direct package: https://mf.life/wallet/mfcoin-wallet-android-0.6.2-test.apk
+Direct package: https://mf.life/wallet/mfcoin-wallet-android-mainnet-0.6.2-test.apk
 
-Checksum file: https://mf.life/wallet/mfcoin-wallet-android-0.6.2-test.apk.sha256
+Checksum file: https://mf.life/wallet/mfcoin-wallet-android-mainnet-0.6.2-test.apk.sha256
 
 Current SHA-256:
 
 ```text
-e1d039abeb1268a942d9652d022b098ff25417a975aa220e654775d578a996dc
+3b3f998acf3da6253b86f66456d019126f8e9493d645880600034ba26a69d16f
 ```
 
 Requirements and boundaries:
 
 - Android 8.0 / API 26 or newer.
+- Pinned to Main Net genesis `0x4ab2663e09fc2758b1a3702d91b853949708570502ac099a67abc1aad9167d0e`, `wss://mf.life/mainnet-ws` and Main Net Explorer.
 - Only the `INTERNET` permission.
 - Android backups and WebView debugging are disabled.
 - External links open in the browser.
 - Version 0.6.2 fixes status/navigation-bar insets and places Available + Refresh on one line with a larger centered balance below.
-- The APK is signed with a debug key. Verify the checksum and public source before installation. Do not present it as an approved Play Store release.
+- The APK is signed with a debug key. Verify the checksum and public source before installation. Do not present it as an approved Play Store release or as device-tested production distribution.
 
 Build instructions: https://github.com/PavelMuntyan/mfcoin-wallet/blob/main/ANDROID.md
 
