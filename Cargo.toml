@@ -60,6 +60,7 @@ zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_0
 solochain-template-runtime = { path = "./runtime", default-features = false }
 pallet-freeland-records = { path = "./pallets/freeland-records", default-features = false }
 pallet-mfc-rewards = { path = "./pallets/mfc-rewards", default-features = false }
+mfcoin-address = { path = "./primitives/address", default-features = false }
 pallet-template = { path = "./pallets/template", default-features = false }
 clap = { version = "4.5.13" }
 finality-grandpa = { version = "0.16.3", default-features = false, features = ["derive-codec"] }

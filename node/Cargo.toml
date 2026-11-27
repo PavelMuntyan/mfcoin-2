@@ -30,6 +30,8 @@ futures = { features = ["thread-pool"], workspace = true }
 futures-timer.workspace = true
 sp-crypto-hashing.workspace = true
 jsonrpsee = { features = ["server"], workspace = true }
+mfcoin-address.default-features = true
+mfcoin-address.workspace = true
 pallet-freeland-records.default-features = true
 pallet-freeland-records.workspace = true
 pallet-mfc-rewards.default-features = true

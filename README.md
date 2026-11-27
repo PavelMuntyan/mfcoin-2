@@ -4,7 +4,7 @@ Public development repository for the new MFCoin blockchain architecture.
 
 ## Status
 
-Contour 18: Testnet 115 currently runs runtime 116 with independently generated validator and payout keys, GRANDPA finality, native rewards, governance upgrades and community assets. The runtime-117 proposal is scheduled for block 33918, and its on-chain code matches the reviewed artifact. Mainnet has not been launched.
+Main Net and Testnet 115 run runtime 117 with GRANDPA finality, native rewards, governance upgrades and community assets. Main Net supports public SHA-256 PoW mining with separately registered Founder 01–04 payouts for the current four authorities. The public mining guide is available at `https://mf.life/mining/`.
 
 The current workspace is based on the standalone Polkadot SDK Solochain Template, branch `update-template/stable2512`, upstream commit `1adedaffe70df1dab07e34e6a57c19e732ececb9`.
 
@@ -12,7 +12,7 @@ The project is being built incrementally: base node and GRANDPA finality first, 
 
 Runtime `spec_version` is `117`. Sudo, the template pallet and Aura have been removed from the runtime; GRANDPA is the only session key. Issuer changes have no root or development-account bypass and still require on-chain multisig approval followed by the timelock. Development accounts remain in the dev/local presets and the explicitly non-production example configuration.
 
-The development contour uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets difficulty every 60 blocks against a 6-second target using runtime timestamps. SHA-256 and these parameters are devnet scaffolding, not the final RandomX/mainnet configuration.
+The node uses a managed mining-thread lifecycle, discards stale mining jobs after the best block changes, and retargets SHA-256 difficulty every 60 blocks against a 6-second target using runtime timestamps. Main Net uses this SHA-256 PoW implementation; RandomX is not deployed.
 
 Verified: 74 workspace tests, 21 reward tests with benchmarks, 7 JavaScript address-codec tests, 3 indexer tests and both clippy configurations pass. The isolated production-candidate example finalized block 40, executed its multisig/timelocked issuer change and finalized a synthetic passport record with a verified 256-sibling registry proof. The multi-node regression separately confirmed finality loss/recovery, canonical reorg handling and `orphaned` indexer history.
 
@@ -48,7 +48,7 @@ Read-only `mfc_rewardTotals`, `mfc_rewardObligation`, `mfc_validatorReward`, `mf
 
 `mfc_validatorEvidence(block_hash)` decodes the block's GRANDPA justification, checks the commit target, ancestry, authority set id and validator signatures, and returns actual precommit signers. Missing or invalid justifications are rejected. The native justification period defaults to 512; regression networks set `MFCOIN_GRANDPA_JUSTIFICATION_PERIOD=1` explicitly to retain every proof.
 
-The read-only endpoint is not trusted for payment. Release verification runs independently in runtime. `node/examples/reward_relayer.rs` polls mature obligations, writes each proof to an atomic bounded queue before submission, resumes pending work after restart and fails loudly instead of silently skipping missing evidence. During its first synchronization only, it advances past historically unfinalized blocks that have no justification; after recording the first available proof, later missing evidence remains a hard failure. Expired obligations are removed from pending work after a fresh canonical-state check. One-shot mode processes a fixed mature-head snapshot instead of chasing new blocks indefinitely. `MFC_RELAYER_END_TARGET` can additionally cap that snapshot for bounded batches and deterministic restart tests. It uses a separate fee-paying relayer key, never a validator key. Configure `MFC_RELAYER_SEED`, `MFC_RELAYER_QUEUE` and the activation-appropriate `MFC_RELAYER_START_TARGET`; the explicit seed also applies to local RPC endpoints. Redundant relayers are recommended. `node/examples/register_validator_payout.rs` signs registration on the operator host with `MFC_VALIDATOR_SEED`, an SS58 `MFC_VALIDATOR_PAYOUT`, `MFC_VALIDATOR_SET_ID` and the separate relayer key.
+The read-only endpoint is not trusted for payment. Release verification runs independently in runtime. `node/examples/reward_relayer.rs` polls mature obligations, writes each proof to an atomic bounded queue before submission and resumes pending work after restart. Blocks without a GRANDPA justification are skipped explicitly; malformed evidence and failed releases remain hard failures. An exhausted fee balance is retried every 60 seconds without a crash loop. Obligations and releases expire after 1,200 blocks, so an oversized FIFO backlog must be partitioned or processed in bounded newest-first batches instead of repeatedly submitting expired calls. One-shot mode processes a fixed mature-head snapshot; `MFC_RELAYER_END_TARGET` caps that snapshot for bounded batches and deterministic restart tests. The relayer uses a separate fee-paying key, never a validator key. Configure `MFC_RELAYER_SEED`, `MFC_RELAYER_QUEUE` and the activation-appropriate `MFC_RELAYER_START_TARGET`; the explicit seed also applies to local RPC endpoints. Run only one relayer per target range: concurrent duplicate submissions conflict, while the Main Net primary and relayer-2 backfill use disjoint ranges. `node/examples/register_validator_payout.rs` signs registration on the operator host with `MFC_VALIDATOR_SEED`, an SS58 `MFC_VALIDATOR_PAYOUT`, `MFC_VALIDATOR_SET_ID` and the separate relayer key.
 
 `scripts/check-validator-rewards.mjs` covers direct release/claim/replay, while `scripts/check-reward-relayer.mjs` covers durable release, restart and duplicate safety.
 
@@ -65,7 +65,7 @@ mfcx1qr0q6mcy33zau35pvz8qnt87z02mzmrp04ehd7n0d4m67rg8c4axwm22jed
 tmfcx1qr0q6mcy33zau35pvz8qnt87z02mzmrp04ehd7n0d4m67rg8c4axwyt737x
 ```
 
-Run the JavaScript tests with `cd packages/address && npm test`, and the Rust tests with `cargo +1.88.0 test -p mfcoin-address`. Nodes and transaction tooling continue to accept SS58 until wallet/API integration is complete; the codecs alone do not enable `mfcx` financial transactions.
+Run the JavaScript tests with `cd packages/address && npm test`, and the Rust tests with `cargo test -p mfcoin-address`. Wallets and transaction tooling use canonical addresses directly, while `--pow-payout-account` also preserves SS58 and 32-byte `0x` compatibility.
 
 ## Production-candidate configuration
 
@@ -128,25 +128,49 @@ The info root is deposited as an `MFCF` digest during `on_finalize`. `governance
 
 ## Build
 
-Requirements:
+The root `rust-toolchain.toml` pins Rust `1.88.0`, `rust-src` and the `wasm32-unknown-unknown` target. Rustup uses it automatically from the repository root. LLVM/libclang and `protoc` are also required; Node.js is used by the devnet RPC checks.
 
-- Rust `1.88.0` with the `wasm32-unknown-unknown` target;
-- LLVM/libclang on macOS;
-- `protoc` (`brew install protobuf`) for `litep2p`;
-- Node.js for the devnet RPC check.
+On macOS, including Apple Silicon:
 
 ```sh
-cargo +1.88.0 build --release
+brew install llvm protobuf
+export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
+export DYLD_LIBRARY_PATH="$LIBCLANG_PATH"
+export PROTOC="$(brew --prefix protobuf)/bin/protoc"
+cargo build --release
 ./target/release/solochain-template-node --dev
 ```
 
-On macOS with Homebrew LLVM:
+`LIBCLANG_PATH` and `DYLD_LIBRARY_PATH` are both needed on machines where the RocksDB build helper cannot locate `libclang.dylib`. `PROTOC` selects the Homebrew protobuf compiler for `litep2p`.
+
+## Main Net mining
+
+A miner needs only a public payout account. The node accepts canonical `mfcx`/`tmfcx`, SS58 and 32-byte `0x` AccountId forms. The wallet's **Copy AccountId (Hex) for mining** action exposes only public account data. Never pass a seed phrase, private key or validator secret to `--pow-payout-account` or `key inspect`.
+
+Build the release binary, download the chain specification and generate the separate node-network key once:
 
 ```sh
-export LIBCLANG_PATH=/opt/homebrew/opt/llvm/lib
-export DYLD_LIBRARY_PATH=/opt/homebrew/opt/llvm/lib
-cargo +1.88.0 build --release
+curl -fsS https://mf.life/api/mainnet/chain-spec -o chain-spec-raw.json
+./target/release/solochain-template-node key generate-node-key \
+  --chain chain-spec-raw.json \
+  --base-path ./mfcoin-miner-data
 ```
+
+Protect the generated `secret_ed25519` file. Then start PoW authoring with the live-verified archive bootnode, including its `/ws` transport:
+
+```sh
+./target/release/solochain-template-node \
+  --validator \
+  --chain chain-spec-raw.json \
+  --base-path ./mfcoin-miner-data \
+  --rpc-methods safe \
+  --no-mdns \
+  --no-prometheus \
+  --pow-payout-account mfcx1YOUR_MAINNET_ADDRESS \
+  --bootnodes /ip4/65.108.230.60/tcp/30464/ws/p2p/12D3KooWPW2CeKhqyjNToeAV3SM6XxRWb6TVYHbsznV6P2ZLfFiR
+```
+
+Replace the intentionally invalid placeholder with your own public address. `--validator` enables PoW authoring in this implementation; it does not make the node a GRANDPA authority. Only `Successfully mined block` denotes your own block, while `Imported` blocks arrived from peers. The 45% PoW share is deposited automatically after 10 canonical blocks and does not depend on the GRANDPA validator-reward relayer. Authored blocks and rewards are not guaranteed; verify them through Main Net Explorer.
 
 ## Verify a running devnet
 
