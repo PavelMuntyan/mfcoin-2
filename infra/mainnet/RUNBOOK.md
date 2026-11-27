@@ -63,6 +63,10 @@ To replace a server, stage the same reviewed binary and raw spec, restore only t
 
 For data recovery, restore into a separate directory first, compare configuration and key hashes with the backup, and avoid running two copies of the same validator key simultaneously.
 
+## Owner-requested payout-key export
+
+The four historical PoW payout documents remain in the protected production secret store. In the `mf-life` checkout, the owner can run `bash scripts/update-founder-env.sh`. The command uses the local RSA key pair in `.founder-export`, publishes only an RSA-encrypted one-day artifact, decrypts locally, preserves unrelated `.env` entries and creates a timestamped `.env` backup before replacing the four `MFC_MAINNET_PAYOUT_*_JSON` records. Never print the decrypted documents or commit `.env`, `.founder-export` or its backups. Missing Founder 01–06 seeds cannot be recovered from public addresses.
+
 ## Runtime upgrade
 
 Prepare and test the new runtime on Testnet first. Use the reviewed governance 2-of-3 workflow with a pinned artifact run ID and proposal ID. Verify the proposal's code hash, execution block and expiry before signing. After execution, check `specVersion`, best and finalized block progress, GRANDPA evidence, reward totals, archive synchronization, Explorer and wallet. A failed Testnet upgrade blocks Main Net launch or the corresponding Main Net upgrade.
