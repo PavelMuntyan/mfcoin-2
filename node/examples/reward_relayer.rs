@@ -101,12 +101,23 @@ async fn submit_release(
 			Value::u128(ancestry_count.into()),
 		],
 	);
-	let result = api
-		.tx()
-		.sign_and_submit_then_watch_default(&release, signer)
-		.await?
-		.wait_for_finalized_success()
+	let result = loop {
+		let result = async {
+			api.tx()
+				.sign_and_submit_then_watch_default(&release, signer)
+				.await?
+				.wait_for_finalized_success()
+				.await
+		}
 		.await;
+		match &result {
+			Err(error) if error.to_string().contains("Inability to pay some fees") => {
+				eprintln!("validator_relay_insufficient_fees=true target={target} retry_seconds=60");
+				tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+			},
+			_ => break result,
+		}
+	};
 	if let Err(error) = result {
 		let obligation = reward(http, target).await?;
 		if obligation.is_null() {
