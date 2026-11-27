@@ -49,13 +49,21 @@ These facts change. Before discussing current runtime or launch status, fetch `/
 
 The Main Net genesis 1 MFC treasury endowment is separate from modeled block emission. Do not describe it as a general premine distributed to founders.
 
+Testnet 115 currently runs in parallel with Main Net, but this is an operational choice, not an always-on guarantee. Testnet 112 is a legacy archive, not an active parallel network.
+
+### Community mining
+
+Main Net uses SHA-256 PoW for candidate blocks and GRANDPA for finality. Build `solochain-template-node` from the public source and download `GET /api/mainnet/chain-spec`. Use a public `mfcx` payout address, never a seed phrase, private key or validator secret. The PoW share is 45% of block subsidy and matures after 10 canonical blocks; rewards are not guaranteed.
+
+The current implementation enables PoW authoring with `--validator`, but that flag does not assign GRANDPA authority or validator rewards. Keep RPC local with `--rpc-methods safe --no-mdns --no-prometheus`, and use the public archive bootnode `/ip4/138.201.131.105/tcp/30465/p2p/12D3KooWA7vCT81K7s4cHqm1GYij6ggvyHj1tk9VPzuXNs5MaQDv`. Check authored blocks and payouts through Main Net Explorer.
+
 ### Post-quantum design track
 
 PQC is a research and design track, not deployed functionality. Current launch accounts use Sr25519 and current GRANDPA authorities use Ed25519. The roadmap evaluates ML-DSA-65 for user signatures, optional Sr25519+PQC hybrid migration on Testnet, 32-byte account identifiers and preserved Bech32m addresses where possible. SLH-DSA is only a candidate for cold governance evaluation. Post-quantum GRANDPA is a separate long-term research track. Do not claim that MFCoin is quantum-resistant or give an activation date. Design and exit criteria: https://github.com/PavelMuntyan/mfcoin-2/blob/main/docs/PQC-ROADMAP.md
 
 ### Applied product concept tracks
 
-Four additional tracks are **CONCEPT**, not deployed products: Proof of Creation & Interactive Media; Agent Payments & Machine Economy (x402, Session Keys, AI marketplace); Identity, Credentials & Registries; Interoperability & Privacy Research (bridges and Privacy Pools). MFC20 currently means native `pallet_assets`, not a general smart-contract environment. Do not promise legal WIPO-equivalent rights, trustless bridges, anonymous mixers, NFT support or ZK identity before separate designs and test evidence exist. Details and sequencing: https://github.com/PavelMuntyan/mfcoin-2/blob/main/docs/PRODUCT-ROADMAP.md
+Five additional tracks are **CONCEPT**, not deployed products: Proof of Creation & Interactive Media; Agent Payments & Machine Economy (x402, Session Keys, AI marketplace); Multisender for reviewed batch transfers; Identity, Credentials & Registries; Interoperability & Privacy Research (bridges and Privacy Pools). Multisender must expose every recipient and partial failure before signing; it is not a live wallet feature. MFC20 currently means native `pallet_assets`, not a general smart-contract environment. Do not promise legal WIPO-equivalent rights, trustless bridges, anonymous mixers, NFT support or ZK identity before separate designs and test evidence exist. Details and sequencing: https://github.com/PavelMuntyan/mfcoin-2/blob/main/docs/PRODUCT-ROADMAP.md
 
 ## 4. Wallets and installation
 

@@ -1,6 +1,6 @@
 # MFCoin applied product roadmap
 
-Status: all four tracks below are **CONCEPT**. They are not deployed, have no activation dates and do not imply a general smart-contract environment. Current MFC20 native assets use `pallet_assets`; new capabilities may require dedicated runtime pallets, an NFT standard, offchain services, ZK circuits and independent audits.
+Status: all five tracks below are **CONCEPT**. They are not deployed, have no activation dates and do not imply a general smart-contract environment. Current MFC20 native assets use `pallet_assets`; new capabilities may require dedicated runtime pallets, an NFT standard, offchain services, ZK circuits and independent audits.
 
 ## Shared design rules
 
@@ -52,9 +52,17 @@ Privacy Pools require circuits, nullifiers, Merkle roots, encrypted notes, relay
 
 Implementation order: bridge threat model and limited devnet proofs, followed only much later by ZK privacy research and any decision about production suitability.
 
+## 5. Multisender
+
+**Concept status:** wallet-side batch-transfer flow, not a deployed feature and not a new token contract.
+
+Multisender would let a user prepare multiple native MFC or community-asset transfers in one reviewed workflow. Each recipient, asset ID, amount and decimals must be explicit before signing. The interface needs an aggregate fee cap, duplicate-recipient detection, nonce and mortality handling, and deterministic recovery for rejected, expired or partially finalized batches. Partial failures must never be presented as full success.
+
+A safe implementation starts as a devnet wallet prototype using existing native calls. Only after reviewing fee behavior, reorgs, duplicate submissions and the complete error model should it be considered for a public testnet.
+
 ## Delivery sequence
 
-1. x402, Session Keys and Proof of Creation as the first product designs.
+1. Multisender, x402, Session Keys and Proof of Creation as the first product designs.
 2. General registries, media monetization and the initial AI marketplace.
 3. ZK Identity, advanced escrow and the NFT standard.
 4. Bridges and Privacy Pools after dedicated security, cryptography and legal review.
