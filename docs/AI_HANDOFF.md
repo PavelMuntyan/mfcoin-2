@@ -26,7 +26,7 @@ At this document's review time:
 
 - **Testnet 115** is the active public test network with four validators. It runs runtime 117. The runtime-117 `SetCode` proposal executed after its scheduled block 33918; finality, reward accounting, Explorer and wallet checks passed after the upgrade.
 - **Testnet 112** is a legacy network retained for archive and migration history. Do not confuse it with Testnet 115 or Main Net.
-- **Main Net has not launched.** The candidate raw genesis has exactly 1 MFC assigned to treasury and no other funded accounts. This is a launch configuration, not a live distribution.
+- **Main Net validators and both archives are live with runtime 117 and advancing finalized blocks.** Genesis has exactly 1 MFC assigned to treasury and no other funded accounts. The public RPC gateway, Explorer and wallet rollout is in progress; until public health checks pass, do not describe the public rollout as complete.
 - The runtime-117 source revision used for the reproducible build is `7cf7e48a30eb084c14e51325839e3ea5bfc8f0c1`.
 - Android Wallet 0.6.2 is a debug-signed test package, not a Play Store release. The desktop Chrome package is 0.6.5.
 - The operator start workflow is prepared to launch four validators and two archives after the runtime and custody gates. It validates finalized height before starting archives and resumes without restarting validators when finality is already advancing. Bootstrap validates the expected genesis and runtime directly on the validator host through local WebSocket RPC and has a bounded runtime. Its locked Node dependencies from the `mf-life` manifest and treasury/relayer documents are placed only in a private temporary directory that is removed after the launch job. Launch verification runs independently on each validator host through local RPC, checks that host's validators and archive, and uses the `ws` package explicitly when RPC Host headers are needed. Reward checks use the protocol's 10-block maturation and allow for transaction-fee burning rather than treating it as unexplained issuance. Preparing these workflows does not itself make Main Net live.
@@ -71,6 +71,10 @@ Public page: https://mf.life/wallet/
 6. For a new account, write down the 12-word seed phrase offline and confirm the three randomly requested words. An account is not activated before backup confirmation.
 
 The extension requests the `storage` and `sidePanel` permissions; `sidePanel` is used only to open the wallet in the browser’s side panel. It deliberately has no dApp provider, content scripts, website signing, telemetry or remote configuration.
+
+### Main Net Chrome extension — 0.6.5
+
+Download `mfcoin-wallet-chrome-mainnet-0.6.5.zip` and its SHA-256 file from https://mf.life/wallet/. This separate Main Net build uses `mfcx` addresses and is pinned to genesis `0x4ab2663e09fc2758b1a3702d91b853949708570502ac099a67abc1aad9167d0e`. Do not use the Testnet 115 build for Main Net transfers.
 
 ### Android test package — 0.6.2
 
