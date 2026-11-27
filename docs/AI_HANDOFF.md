@@ -26,7 +26,7 @@ At this document's review time:
 
 - **Testnet 115** is the active public test network with four validators. It runs runtime 117. The runtime-117 `SetCode` proposal executed after its scheduled block 33918; finality, reward accounting, Explorer and wallet checks passed after the upgrade.
 - **Testnet 112** is a legacy network retained for archive and migration history. Do not confuse it with Testnet 115 or Main Net.
-- **Main Net validators and both archives are live with runtime 117 and advancing finalized blocks.** Genesis has exactly 1 MFC assigned to treasury and no other funded accounts. The public RPC gateway, Explorer and wallet rollout is in progress; Nginx maps their public paths to the backend RPC and Explorer routes, and public health checks must pass before the rollout is described as complete.
+- **Main Net is live with runtime 117, four validators and two archives, with advancing finalized blocks.** Genesis has exactly 1 MFC assigned to treasury and no other funded accounts. Public RPC, Explorer and wallet are available and health-checked. Use `wss://mf.life/mainnet-ws`, `https://mf.life/health/mainnet-rpc`, `https://mf.life/mainnet-explorer/` and `/api/mainnet-explorer/*`.
 - The runtime-117 source revision used for the reproducible build is `7cf7e48a30eb084c14e51325839e3ea5bfc8f0c1`.
 - Android Wallet 0.6.2 is a debug-signed test package, not a Play Store release. The desktop Chrome package is 0.6.5.
 - The operator start workflow is prepared to launch four validators and two archives after the runtime and custody gates. It validates finalized height before starting archives and resumes without restarting validators when finality is already advancing. Bootstrap validates the expected genesis and runtime directly on the validator host through local WebSocket RPC and has a bounded runtime. Its locked Node dependencies from the `mf-life` manifest and treasury/relayer documents are placed only in a private temporary directory that is removed after the launch job. Launch verification runs independently on each validator host through local RPC, checks that host's validators and archive, and uses the `ws` package explicitly when RPC Host headers are needed. Reward checks use the protocol's 10-block maturation and allow for transaction-fee burning rather than treating it as unexplained issuance. Preparing these workflows does not itself make Main Net live.
@@ -47,7 +47,7 @@ These facts change. Before discussing current runtime or launch status, fetch `/
 - Native assets use `pallet_assets`, not a custom smart contract. Creation reserves 100 MFC plus a metadata deposit. IDs auto-increment from 1. Issuer-controlled mint/burn, transfers, approvals and freezing are supported.
 - Freeland records contain fixed-size commitments and hashes, not raw passport photographs, names, birth dates or passport numbers.
 
-The Main Net candidate's 1 MFC treasury endowment is separate from modeled block emission. Do not describe it as a general premine distributed to founders.
+The Main Net genesis 1 MFC treasury endowment is separate from modeled block emission. Do not describe it as a general premine distributed to founders.
 
 ### Post-quantum design track
 
@@ -105,7 +105,7 @@ Build instructions: https://github.com/PavelMuntyan/mfcoin-wallet/blob/main/ANDR
 - **Imported seed/private key:** can sign after validation.
 - **Watch-only:** contains only a public address and can never sign or export a private key, including direct background calls.
 
-The public Testnet 115 wallet build creates and imports Testnet 115 accounts. Main Net is not live; do not treat a Main Net address as compatible with this build.
+The public Testnet 115 wallet build creates and imports Testnet 115 accounts. Main Net uses a separate Main Net build; do not treat a Main Net address as compatible with the Testnet build.
 
 ## 5. Common user operations
 
@@ -135,7 +135,7 @@ The public burn destination is the zero AccountId: `0x00000000000000000000000000
 mfcx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6d8kkz
 ```
 
-No private key is known for this account. Native MFC sent to this address becomes permanently inaccessible. Always warn the user about irreversibility and make sure the network and full address are checked before signing. Main Net is not live, so this is currently public protocol guidance, not an instruction to make a Main Net transfer. Do not replace the valid checksum with an invented suffix such as `dead`.
+No private key is known for this account. Native MFC sent to this address becomes permanently inaccessible. Always warn the user about irreversibility and make sure the network and full address are checked before signing. Main Net is live, so an incorrect destination can cause a real loss. Do not replace the valid checksum with an invented suffix such as `dead`.
 
 A transfer to the zero account locks native MFC but does not execute `pallet_assets.burn` or decrease `Balances.TotalIssuance`. For community assets, use the asset issuer's reviewed burn operation rather than describing a zero-account transfer as an asset-supply burn.
 
@@ -172,6 +172,10 @@ Use these HTTPS endpoints for read-only verification. All are on `https://mf.lif
 | Account asset balances | `GET /api/explorer/accounts/tmfcx1…/assets` |
 | Next asset ID | `GET /api/explorer/next-asset-id` |
 | Legacy Testnet 112 status | `GET /api/explorer112/status` |
+| Main Net RPC health | `GET /health/mainnet-rpc` |
+| Main Net Explorer status | `GET /api/mainnet-explorer/status` |
+| Main Net blocks | `GET /api/mainnet-explorer/blocks?limit=20` |
+| Main Net account balance and activity | `GET /api/mainnet-explorer/accounts/mfcx1…?limit=20` |
 
 The landing hero shows `peers` from `/api/community/network-status` as connected peers of the public RPC node. This is not a claim about the total number of nodes in the network. The four statistic cards use four columns on desktop, two on tablet and one on mobile, with readable label wrapping.
 
