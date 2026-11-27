@@ -4,6 +4,9 @@ import { Keyring } from "@polkadot/keyring";
 import { cryptoWaitReady } from "@polkadot/util-crypto";
 import { readFile } from "node:fs/promises";
 import { shouldFund } from "./bootstrap-mainnet-plan.mjs";
+import WebSocket from "ws";
+
+globalThis.WebSocket = WebSocket;
 
 const rpcUrl = process.env.MFC_MAINNET_RPC_URL || "ws://127.0.0.1:9980";
 const expectedGenesis = process.env.MFC_MAINNET_EXPECTED_GENESIS_HASH;

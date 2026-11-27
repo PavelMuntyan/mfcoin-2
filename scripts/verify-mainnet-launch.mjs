@@ -3,6 +3,9 @@ import { readFile } from "node:fs/promises";
 import { ApiPromise, WsProvider } from "@polkadot/api";
 import { Keyring } from "@polkadot/keyring";
 import { cryptoWaitReady } from "@polkadot/util-crypto";
+import WebSocket from "ws";
+
+globalThis.WebSocket = WebSocket;
 
 const expectedGenesis = process.env.MFC_MAINNET_EXPECTED_GENESIS_HASH;
 const config = JSON.parse(await readFile(process.env.MFC_MAINNET_CONFIG || new URL("../production.mainnet.json", import.meta.url), "utf8"));
