@@ -54,7 +54,7 @@ Testnet 115 currently runs in parallel with Main Net, but this is an operational
 
 ### Community mining
 
-Main Net uses SHA-256 PoW for candidate blocks and GRANDPA for finality. Build `solochain-template-node` from the public source and download `GET /api/mainnet/chain-spec`. Use a public `mfcx` payout address, never a seed phrase, private key or validator secret. The PoW share is 45% of block subsidy and matures after 10 canonical blocks; rewards are not guaranteed.
+Main Net uses SHA-256 PoW for candidate blocks and GRANDPA for finality. The public guide is `/mining/`; the core wallet dashboard is `/corewallets/`, with `/my_wallets` redirecting to it. Build `solochain-template-node` from the public source and download `GET /api/mainnet/chain-spec`. Wallets use canonical `mfcx` addresses, while the current `--pow-payout-account` CLI expects the SS58 representation of the same AccountId32. Never use a seed phrase, private key or validator secret as the payout input. The PoW share is 45% of block subsidy and matures after 10 canonical blocks; rewards are not guaranteed.
 
 The current implementation enables PoW authoring with `--validator`, but that flag does not assign GRANDPA authority or validator rewards. Keep RPC local with `--rpc-methods safe --no-mdns --no-prometheus`, and use the public archive bootnode `/ip4/138.201.131.105/tcp/30465/p2p/12D3KooWA7vCT81K7s4cHqm1GYij6ggvyHj1tk9VPzuXNs5MaQDv`. Check authored blocks and payouts through Main Net Explorer.
 
