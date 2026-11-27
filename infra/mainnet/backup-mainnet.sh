@@ -25,6 +25,9 @@ trap 'rm -rf "$stage"' EXIT
 chmod 700 "$stage"
 mkdir -p "$stage/config" "$stage/network-keys"
 cp -a "$ROOT/production.mainnet.json" "$ROOT/chain-spec-raw.json" "$ROOT/secrets" "$stage/config/"
+if [[ -f "$ROOT/founder-payouts.mainnet.json" ]]; then
+  cp -a "$ROOT/founder-payouts.mainnet.json" "$stage/config/"
+fi
 if [[ -f "$ROOT/target/release/solochain-template-node" ]]; then
   "$ROOT/target/release/solochain-template-node" --version > "$stage/node-version.txt"
 fi
