@@ -53,6 +53,10 @@ Run the protected bootstrap job after finality is confirmed. It verifies the gen
 
 Before upgrading or replacing a node, create a backup and verify it with `tar -tzf` and `sha256sum -c`.
 
+## Controlled restart
+
+The `Stop Main Net` workflow stops validators, archives and relayers on both hosts without deleting chain data or relayer queues. Restart validators with the same expected genesis and `founder-payouts.mainnet.json`, then start only one relayer with the reviewed binary. Do not treat the restart as complete until finality advances and fresh PoW and GRANDPA payouts are verified on-chain.
+
 ## Stop, cancel and recover
 
 For a planned stop, use `pm2 stop` on the Main Net archive and validator processes, then `pm2 save`. Stop archives before validators. Do not delete chain data.
