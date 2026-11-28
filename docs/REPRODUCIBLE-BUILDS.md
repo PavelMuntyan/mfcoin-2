@@ -7,7 +7,7 @@ Use Rust 1.88.0 with the `wasm32-unknown-unknown` target, LLVM/libclang and `pro
 ```sh
 git clone https://github.com/PavelMuntyan/mfcoin-2.git
 cd mfcoin-2
-git checkout 2606af8d6ec2f927c3ad60a3e9ca0cf65d615485
+git checkout 211630eb3aad4b6e986422a7ddc24cde44d9aa9e
 cargo +1.88.0 build --locked --release
 ```
 
