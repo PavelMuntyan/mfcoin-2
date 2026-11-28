@@ -273,6 +273,7 @@ pub mod pallet {
 					nonce: record.nonce,
 					evidence_hash: record.evidence_hash,
 				};
+				SubjectIssuers::<T>::set(record.kind, record.subject_commitment, Some(record.issuer.clone()));
 				LatestRecords::<T>::set(record.kind, record.subject_commitment, Some(record.clone()));
 				let next_nonce = record.nonce.saturating_add(1);
 				if NextNonce::<T>::get(&record.issuer) < next_nonce {
@@ -316,6 +317,17 @@ pub mod pallet {
 		Blake2_128Concat,
 		H256,
 		FreelandRecord<T::AccountId>,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	pub type SubjectIssuers<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		RecordKind,
+		Blake2_128Concat,
+		H256,
+		T::AccountId,
 		OptionQuery,
 	>;
 
@@ -378,6 +390,7 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		UnauthorizedIssuer,
+		SubjectIssuerMismatch,
 		InvalidAction,
 		InvalidNonce,
 		NonceOverflow,
@@ -514,6 +527,13 @@ pub mod pallet {
 				BlockRecordIds::<T>::get().len() < T::MaxRecordsPerBlock::get() as usize,
 				Error::<T>::TooManyRecords
 			);
+			let subject_issuer = SubjectIssuers::<T>::get(kind, subject_commitment)
+				.or_else(|| LatestRecords::<T>::get(kind, subject_commitment).map(|record| record.issuer));
+			if let Some(subject_issuer) = subject_issuer {
+				ensure!(subject_issuer == issuer, Error::<T>::SubjectIssuerMismatch);
+			} else {
+				SubjectIssuers::<T>::set(kind, subject_commitment, Some(issuer.clone()));
+			}
 
 			let record = FreelandRecord {
 				version: RECORD_VERSION,

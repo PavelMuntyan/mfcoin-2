@@ -78,6 +78,27 @@ fn authorized_issuer_submits_typed_record() {
 }
 
 #[test]
+fn only_original_subject_issuer_can_update_or_revoke_a_record() {
+	new_test_ext().execute_with(|| {
+		allow(RecordKind::Passport, 1);
+		allow(RecordKind::Passport, 2);
+		assert_ok!(submit(1, RecordKind::Passport, RecordAction::Issue, 0));
+		assert_noop!(
+			submit(2, RecordKind::Passport, RecordAction::Update, 0),
+			Error::<Test>::SubjectIssuerMismatch
+		);
+		assert_ok!(submit(1, RecordKind::Passport, RecordAction::Update, 1));
+		assert_noop!(
+			submit(2, RecordKind::Passport, RecordAction::Revoke, 0),
+			Error::<Test>::SubjectIssuerMismatch
+		);
+		assert_ok!(submit(1, RecordKind::Passport, RecordAction::Revoke, 2));
+		assert_eq!(LatestRecords::<Test>::get(RecordKind::Passport, hash(10)).unwrap().issuer, 1);
+		assert_eq!(TotalRecords::<Test>::get(), 3);
+	});
+}
+
+#[test]
 fn unauthorized_issuer_and_signed_role_management_are_rejected() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
