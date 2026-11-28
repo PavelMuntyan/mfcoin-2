@@ -24,13 +24,13 @@ MFCoin 2.0 is a new Layer One protocol, not an ERC20/TRC20 token contract. MFCha
 
 At this document's review time:
 
-- **Testnet 115** is the active public test network with four validators. It runs runtime 117. The runtime-117 `SetCode` proposal executed after its scheduled block 33918; finality, reward accounting, Explorer and wallet checks passed after the upgrade.
-- **Testnet 112** is a legacy network retained for archive and migration history. Do not confuse it with Testnet 115 or Main Net.
-- **Main Net is live with runtime 117, four validators and two archives, with advancing finalized blocks.** Genesis has exactly 1 MFC assigned to treasury and no other funded accounts. Public RPC, Explorer and wallet are available and health-checked. Use `wss://mf.life/mainnet-ws`, `https://mf.life/health/mainnet-rpc`, `https://mf.life/mainnet-explorer/` and `/api/mainnet-explorer/*`. The founder dashboard reads live balances through Main Net Explorer, uses the same About navigation as the landing page and lists eight public addresses: Founder 01–04 plus the four token-holding historical PoW recipients. The two unused addresses formerly labelled Founder 05 and Founder 06 were removed from the public registry; no token-holding address was removed. New PoW obligations are assigned only to Founder 01–04, verified on-chain in finalized blocks 2268–2272. The 20% treasury share still goes to the separate protocol treasury `5C5ddNuSDBjjuVvs4vgZ72i7uVfyaMQQiyJtkJoELUdJ9QRY` (`mfcx1qqqt2qjrv3lghwctng230vsexaygsnkek90uhld4m353zre54u7z67ge0kz`). All four current GRANDPA authorities in set 0 have finalized registrations to Founder 01–04 with registration nonce 1. These changes do not rewrite historical payouts. `validatorPaid` was still zero at the registration check; registration controls the destination but does not promise a release time or a return.
+- **Testnet 115** is the active public test network with four validators. It runs runtime 117 and remains online with advancing finalized blocks.
+- **Testnet 112 and the previous Main Net are retired.** Their processes, chain data and public endpoints were removed; do not confuse them with Testnet 115 or the recovered Main Net.
+- **Main Net MFC20 is live with runtime 117, four validators and two archives, with advancing finalized blocks.** Its chain ID is `mfcoin2-mainnet-mfc20` and its genesis is `0x1a468127d7396489006914e0b82cbf7638f0447b044b41e0b64a456e1be2be7e`. State was migrated from the stopped Main Net snapshot while preserving Founder 01–08 and balances. Public RPC, Explorer and wallet are available and health-checked. Use `wss://mf.life/mainnet-ws`, `https://mf.life/health/mainnet-rpc`, `https://mf.life/mainnet-explorer/` and `/api/mainnet-explorer/*`. Freeland issuer is enabled, and the SOLONIN pilot record is finalized in block 877 with record ID `0xc7e17239cbb592170ad2b4b3546eb25649d9822a96f4766655c6a9b84fbdd87b`.
 - The runtime-117 source revision used for the reproducible build is `7cf7e48a30eb084c14e51325839e3ea5bfc8f0c1`.
-- Android Wallet 0.6.6 is a debug-signed test package, not a Play Store release. The desktop Chrome package is 0.6.6.
-- The operator start workflow requires a pinned `mfcoin-2` revision and expected genesis. It skips validator restarts while finality advances unless `restart_validators=true`; that explicit restart applies `founder-payouts.mainnet.json`, backs up custody material and requires renewed finalized growth. The separate protected registration workflow signs Founder 01–04 destinations with the existing validator documents and confirms them on-chain without logging secrets. Bootstrap is complete and must not be repeated: treasury nonce 6 includes five transfers and one probe. Launch verification runs independently on each validator host through local RPC, checks that host's validators and archive, and uses the `ws` package explicitly when RPC Host headers are needed. Reward checks use the protocol's 10-block maturation and allow for transaction-fee burning rather than treating it as unexplained issuance.
-- A controlled Main Net restart preserves chain data, genesis, the four authorities and the Founder 01–04 payout mapping. The `Stop Main Net` workflow stops validators, archives and relayers without deleting data; startup is complete only after finality, PoW obligations and new GRANDPA releases are verified.
+- Android Wallet 0.6.7 is a debug-signed test package, not a Play Store release. The desktop Chrome package is 0.6.7.
+- The recovered operator configuration uses the expected genesis above. Main Net relayers and the issuer were funded to 125 MFC each; automatic relayer top-up triggers below 10 MFC, targets 125 MFC and has a 250 MFC rolling 24-hour limit. Startup is complete only after finality, PoW obligations and new GRANDPA releases are verified.
+- The recovered Main Net launch preserves Founder 01–04 payout mapping and migrated state. Governance and issuer documents were generated locally and delivered to the project owner before launch; no independent third-party signers are assumed.
 
 - Public navigation is generated by the shared root `navigation.js` on the landing, Mining, Core Wallets, Wallet, Developers and all Explorer pages. Change that file to update the common menu everywhere; it loads before `script.js` so About keyboard behavior attaches to the generated markup.
 
@@ -89,30 +89,30 @@ Public page: https://mf.life/wallet/
 
 The extension requests the `storage` and `sidePanel` permissions; `sidePanel` is used only to open the wallet in the browser’s side panel. It deliberately has no dApp provider, content scripts, website signing, telemetry or remote configuration.
 
-### Main Net Chrome extension — 0.6.6
+### Main Net Chrome extension — 0.6.7
 
-Download `mfcoin-wallet-chrome-mainnet-0.6.6.zip` and its SHA-256 file from https://mf.life/wallet/. This separate Main Net build uses `mfcx` addresses and is pinned to genesis `0x4ab2663e09fc2758b1a3702d91b853949708570502ac099a67abc1aad9167d0e`. Do not use the Testnet 115 build for Main Net transfers.
+Download `mfcoin-wallet-chrome-mainnet-0.6.7.zip` and its SHA-256 file from https://mf.life/wallet/. This separate Main Net build uses `mfcx` addresses and is pinned to genesis `0x1a468127d7396489006914e0b82cbf7638f0447b044b41e0b64a456e1be2be7e`. Do not use the Testnet 115 build for Main Net transfers.
 
-### Main Net Android test package — 0.6.6
+### Main Net Android test package — 0.6.7
 
-Direct package: https://mf.life/wallet/mfcoin-wallet-android-mainnet-0.6.6-test.apk
+Direct package: https://mf.life/wallet/mfcoin-wallet-android-mainnet-0.6.7-test.apk
 
-Checksum file: https://mf.life/wallet/mfcoin-wallet-android-mainnet-0.6.6-test.apk.sha256
+Checksum file: https://mf.life/wallet/mfcoin-wallet-android-mainnet-0.6.7-test.apk.sha256
 
 Current SHA-256:
 
 ```text
-07c3d4a8e4b59972aefb73fe1a7adeb32900e86a629e6a1a12f5942b47a136c9
+ac5a27e3cb075069ea036e7791c74c65324a82f1dc2151463ad640c42295610f
 ```
 
 Requirements and boundaries:
 
 - Android 8.0 / API 26 or newer.
-- Pinned to Main Net genesis `0x4ab2663e09fc2758b1a3702d91b853949708570502ac099a67abc1aad9167d0e`, `wss://mf.life/mainnet-ws` and Main Net Explorer.
+- Pinned to Main Net genesis `0x1a468127d7396489006914e0b82cbf7638f0447b044b41e0b64a456e1be2be7e`, `wss://mf.life/mainnet-ws` and Main Net Explorer.
 - Only the `INTERNET` permission.
 - Android backups and WebView debugging are disabled.
 - External links open in the browser.
-- Version 0.6.6 fixes status/navigation-bar insets and places Available + Refresh on one line with a larger centered balance below.
+- Version 0.6.7 fixes status/navigation-bar insets and places Available + Refresh on one line with a larger centered balance below.
 - The APK is signed with a debug key. Verify the checksum and public source before installation. Do not present it as an approved Play Store release or as device-tested production distribution.
 
 Build instructions: https://github.com/PavelMuntyan/mfcoin-wallet/blob/main/ANDROID.md
@@ -235,7 +235,7 @@ Inspect the actual status and any dispatch error. A new attempt must be a delibe
 
 ### Android display or installation issues
 
-Require version 0.6.6 for the corrected status/navigation-bar insets and centered balance. Verify the package checksum and Android version. The debug signature is expected for this test build, but Play Store distribution has not been approved.
+Require version 0.6.7 for the corrected status/navigation-bar insets and centered balance. Verify the package checksum and Android version. The debug signature is expected for this test build, but Play Store distribution has not been approved.
 
 ### Incorrect runtime answers
 
