@@ -35,7 +35,7 @@ if [[ -d "$DATA" ]]; then
   while IFS= read -r -d '' key; do
     validator=$(basename "$(dirname "$(dirname "$(dirname "$(dirname "$key")")")")")
     install -D -m 600 "$key" "$stage/network-keys/$validator-secret_ed25519"
-  done < <(find "$DATA" -path '*/chains/mfcoin2-mainnet/network/secret_ed25519' -type f -print0)
+  done < <(find "$DATA" -path '*/chains/*/network/secret_ed25519' -type f -print0)
 fi
 if [[ -f "$HOME/.pm2/dump.pm2" ]]; then
   cp -a "$HOME/.pm2/dump.pm2" "$stage/pm2-dump.pm2"

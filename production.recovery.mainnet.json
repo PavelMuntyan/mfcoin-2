@@ -1,0 +1,22 @@
+{
+  "network": {
+    "name": "MFCoin 2.0 Mainnet MFC20",
+    "id": "mfcoin2-mainnet-mfc20"
+  },
+  "rewards": {
+    "activationBlock": 100,
+    "treasuryAccount": "5C5ddNuSDBjjuVvs4vgZ72i7uVfyaMQQiyJtkJoELUdJ9QRY"
+  },
+  "validators": [
+    "5G2fGugPvymnYgoSCFtjmN9U2TaXHnvNFAzUERW7TFW26wC9",
+    "5CLVcMv6ybymdaedxo92mh6ZeEeYb46oSwvQmipkP6Niaepk",
+    "5H5oSBsnCwRGKsFeM2tv9aM1WVFvrTGn77fvCK5a9arVxkdt",
+    "5DjdW7iCrrFVSFjVm7o2zg7uvXtfQFdM5iQY7QfdNFJyGBDq"
+  ],
+  "governanceSignatories": [
+    "5D9osDng8XowACDujJ5hWV2Gpsznzx1ik9ohiihZejktPpWY",
+    "5DP5FJCbpeu98ztqAviVGH39EgiGVkAx9eESmeBY7EanGdhj",
+    "5FkQ6q5UQQjqNXuEtzryWsz1UmD8n5Jn5ib5Dpsozs51pD3W"
+  ],
+  "endowedAccounts": []
+}
