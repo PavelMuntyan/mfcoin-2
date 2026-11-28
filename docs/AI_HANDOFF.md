@@ -77,6 +77,10 @@ The `/mining/` page lists three scheduled offers: a Freeland Passport and the de
 
 Five additional tracks are **CONCEPT**, not deployed products: Proof of Creation & Interactive Media; Agent Payments & Machine Economy (x402, Session Keys, AI marketplace); Multisender for reviewed batch transfers; Identity, Credentials & Registries; Interoperability & Privacy Research (bridges and Privacy Pools). Multisender must expose every recipient and partial failure before signing; it is not a live wallet feature. MFC20 currently means native `pallet_assets`, not a general smart-contract environment. Do not promise legal WIPO-equivalent rights, trustless bridges, anonymous mixers, NFT support or ZK identity before separate designs and test evidence exist. Details and sequencing: https://github.com/PavelMuntyan/mfcoin-2/blob/main/docs/PRODUCT-ROADMAP.md
 
+### MFC20 TypeScript SDK
+
+The source-available SDK is in `packages/mfc20` at version 0.2.0 with ESM JavaScript, root and `address` subpath declarations, a README, an MIT license and reproducible examples. It supports canonical `mfcx`/`tmfcx` Bech32m addresses, exact MFC and community-asset amounts, balances, asset metadata and balances, network status, validator rewards, signed transfers with finalized-block confirmation and Freeland record queries. `Mfc20Client.connect` pins the expected Main Net or Testnet 115 genesis. The transfer example requires an explicit signer and `MFCOIN_SUBMIT=1`; never put sender seeds in source or shell history. Read-only examples have been verified on live Main Net and Testnet 115, declarations pass TypeScript checking, and CI covers Node 20/22 plus a clean consumer installation of the npm tarball. The public entry point is `/developers/#sdk`; build `mfcoin-mfc20-0.2.0.tgz` with `npm run pack:check` rather than claiming an npm registry release.
+
 ## 4. Wallets and installation
 
 ### Desktop Chrome extension — 0.6.6
