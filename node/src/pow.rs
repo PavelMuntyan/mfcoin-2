@@ -130,7 +130,7 @@ impl PowAlgorithm<Block> for Sha256Algorithm {
             .map_err(|error| Error::Other(error.to_string()))?
             .ok_or(Error::NoBestHeader)?;
         let number = *ancestor_header.number();
-        if number < self.window || number % self.window != 0 {
+        if number < self.window {
             return Ok(target_to_work(current));
         }
         for _ in 0..self.window {
@@ -167,8 +167,8 @@ fn retarget(current: U256, elapsed: u64, window: u32) -> U256 {
     }
     let expected = u64::from(window) * MILLI_SECS_PER_BLOCK;
     let next = current.saturating_mul(U256::from(elapsed)) / U256::from(expected);
-    let minimum = current.saturating_mul(U256::from(3)) / U256::from(4);
-    let maximum = current.saturating_mul(U256::from(5)) / U256::from(4);
+    let minimum = current.saturating_mul(U256::from(9)) / U256::from(10);
+    let maximum = current.saturating_mul(U256::from(21)) / U256::from(20);
     next.max(minimum).min(maximum)
 }
 
@@ -251,17 +251,30 @@ mod tests {
 
     #[test]
     fn retargets_towards_the_runtime_block_interval() {
-        assert_eq!(retarget(U256::from(1_000), 150_000, 60), U256::from(750));
-        assert_eq!(retarget(U256::from(1_000), 225_000, 60), U256::from(750));
-        assert_eq!(retarget(U256::from(1_000), 90_000, 60), U256::from(750));
+        assert_eq!(retarget(U256::from(1_000), 150_000, 60), U256::from(900));
+        assert_eq!(retarget(U256::from(1_000), 225_000, 60), U256::from(900));
+        assert_eq!(retarget(U256::from(1_000), 90_000, 60), U256::from(900));
         assert_eq!(retarget(U256::from(1_000), 360_000, 60), U256::from(1_000));
-        assert_eq!(retarget(U256::from(1_000), 480_000, 60), U256::from(1_250));
-        assert_eq!(retarget(U256::from(1_000), 1, 60), U256::from(750));
-        assert_eq!(retarget(U256::from(1_000), 10_000, 60), U256::from(750));
+        assert_eq!(retarget(U256::from(1_000), 480_000, 60), U256::from(1_050));
+        assert_eq!(retarget(U256::from(1_000), 1, 60), U256::from(900));
+        assert_eq!(retarget(U256::from(1_000), 10_000, 60), U256::from(900));
         assert_eq!(retarget(U256::from(1_000), 0, 60), U256::from(1_000));
 
         assert!(retarget(U256::from(1_000), 480_000, 60) > U256::from(1_000));
         assert!(retarget(U256::from(1_000), 240_000, 60) < U256::from(1_000));
+    }
+
+    #[test]
+    fn retarget_limits_each_block_change_and_recovers_after_a_hashrate_shock() {
+        let expected = 60u64 * MILLI_SECS_PER_BLOCK;
+        assert_eq!(retarget(U256::from(1_000), expected / 100, 60), U256::from(900));
+        assert_eq!(retarget(U256::from(1_000), expected * 100, 60), U256::from(1_050));
+
+        let mut target = U256::from(50);
+        for _ in 0..60 {
+            target = retarget(target, expected * 100, 60);
+        }
+        assert!(target > U256::from(50));
     }
 
     #[test]
@@ -271,7 +284,7 @@ mod tests {
         let target_block_interval = 1_000_000u64;
         let mut target = U256::from(1_000);
 
-        for _ in 0..80 {
+        for _ in 0..500 {
             let elapsed = target_block_interval.saturating_mul(expected) / target.as_u64();
             target = retarget(target, elapsed, window);
         }
