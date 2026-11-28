@@ -11,7 +11,7 @@ This document records manual and automated project review, including AI-assisted
 | Blockchain / runtime 116 | `edae5ae` |
 | Wallet 0.6.0 | `6481671` |
 | Website and Explorer | `04393b5` |
-| Runtime 117 candidate | `7cf7e48a30eb084c14e51325839e3ea5bfc8f0c1` |
+| Runtime 117 candidate | `2606af8d6ec2f927c3ad60a3e9ca0cf65d615485` |
 
 At the time of this update, Testnet 115 still runs runtime 116. The runtime-117 governance proposal is scheduled for block 33918, and its on-chain WASM matches the reviewed build artifact. Main Net has not launched.
 
